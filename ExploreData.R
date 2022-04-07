@@ -2,6 +2,8 @@
 
 folder <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/ExploreData/"
 
+
+################# Data1
 d <- read.table(paste0(folder, "Data1.txt"), sep = "\t", header=TRUE)
 names(d) <- c("frame", "upMean", "upSD", "bottomMean", "bottomSD", "trigger", "audioA", "audioB")
 
@@ -12,6 +14,7 @@ plot(d$bottomSD, type="l");plot(d$bottomMean, type="l")
 plot(d$trigger, type="l")
 
 
+############### Data2
 t <- read.table(paste0(folder, "Data2.txt"), sep = "\t", header=TRUE)
 names(t) <- c("frame", "upMean", "upSD", "bottomMean", "bottomSD", "trigger", "audioA", "audioB", "bellyMean", "bellySD", "faceMean", "faceSD")
 
@@ -71,3 +74,59 @@ plot(t$upSD, type="l");plot(t$upMean, type="l")
 plot(t$bottomSD, type="l");plot(t$bottomMean, type="l")
 plot(t$bellySD, type="l");plot(t$bellyMean, type="l")
 plot(t$faceSD, type="l");plot(t$faceMean, type="l")
+
+############ entireTest
+
+s <- read.table(paste0(folder, "entireTest.txt"), sep = "\t", header=TRUE)
+names(s) <- c("frame", "bottomMean", "bottomSD", "upMean", "upSD", "trigger", "audioA", "audioB")
+
+# par(mfrow=c(4,2))
+# plot(s$upSD, type="l");plot(s$upMean, type="l")
+# plot(s$bottomSD, type="l");plot(s$bottomMean, type="l")
+# plot(s$audioA, type="l"); plot(s$audioB, type="l")
+# plot(s$trigger)
+
+s$section <- NA
+count <- 0
+for(i in 2:nrow(s)){
+  if(s$trigger[i] - s$trigger[i-1] > 4000){
+    count <- count + 1 
+    s$section[i] <- paste0("StartTrial", count)
+  } else if(s$trigger[i] - s$trigger[i-1] < -4000){
+    s$section[i-1] <- paste0("EndTrial", count)
+  }
+}
+
+s$section[s$section=="StartTrial1"] <- "List1" # example of what a name of a section could look like
+s$section[s$section=="EndTrial1"] <- "EndList1"
+s$section[s$section=="StartTrial2"] <- "List2"
+s$section[s$section=="EndTrial2"] <- "EndList2"
+s$section[s$section=="StartTrial3"] <- "List3"
+s$section[s$section=="EndTrial3"] <- "EndList3"
+s$section[s$section=="StartTrial4"] <- "Diapix1"
+s$section[s$section=="EndTrial4"] <- "EndDiapix1"
+s$section[s$section=="StartTrial5"] <- "Diapix2"
+s$section[s$section=="EndTrial5"] <- "EndDiapix2"
+
+for(i in 2:nrow(s)){
+  if(!is.na(s$section[i-1]) && !(grepl("End", s$section[i])) && !grepl("End", s$section[i-1])){ # I tried directly `if(t$section[i-1]=="List1")`, but it said "Missing value where TRUE/FALSE needed"
+    s$section[i] <- "Trial"
+  } else if(!is.na(s$section[i-1]) && !(grepl("End", s$section[i])) && !grepl("End", s$section[i-1])){
+    s$section[i] <- "Trial"
+  }
+}
+
+# before renaming all the frames (in the sections), maybe it'll make it a bit faster to first exclude all the irrelevant frames:
+
+ss <- s[!is.na(s$section),]
+
+# or do I maybe want to keep the entire recording? and then mark them as "conversation" vs "waiting"
+
+# now rename them: ----- not working! almost all being named as List1. why???
+for(i in 2:nrow(ss)){
+  ss$section[ss$section[i] %in% c("Trial", "EndList1") & ss$section[i-1]=="List1"] <- "List1"
+  ss$section[ss$section[i] %in% c("Trial", "EndList2") & ss$section[i-1]=="List2"] <- "List2"
+  ss$section[ss$section[i] %in% c("Trial", "EndList3") & ss$section[i-1]=="List3"] <- "List3"
+  ss$section[ss$section[i] %in% c("Trial", "EndDiapix1") & ss$section[i-1]=="Diapix1"] <- "Diapix1"
+  ss$section[ss$section[i] %in% c("Trial", "EndDiapix2") & ss$section[i-1]=="Diapix2"] <- "Diapix2"
+}
