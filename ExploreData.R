@@ -130,3 +130,17 @@ for(i in 2:nrow(ss)){
   ss$section[ss$section[i] %in% c("Trial", "EndDiapix1") & ss$section[i-1]=="Diapix1"] <- "Diapix1"
   ss$section[ss$section[i] %in% c("Trial", "EndDiapix2") & ss$section[i-1]=="Diapix2"] <- "Diapix2"
 }
+
+
+
+#################### test1-20.4.22
+s <- read.table(paste0(folder, "test1-20.4.22.txt"), sep = "\t", header=TRUE)
+names(s) <- c("frame", "trigger", "Mean1", "SD1", "Mean2", "SD2", "Mean3", "SD3", "audioA", "audioB")
+
+par(mfrow=c(5,2))
+plot(s$SD1, type="l");plot(s$Mean1, type="l")
+plot(s$SD2, type="l");plot(s$Mean2, type="l")
+plot(s$SD3, type="l");plot(s$Mean3, type="l")
+plot(s$audioA, type="l"); plot(s$audioB, type="l")
+plot(s$trigger)
+
