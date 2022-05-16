@@ -1,5 +1,7 @@
 # Explore data from thermal camera
 
+library(tidyverse)
+
 folder <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/ExploreData/"
 
 
@@ -144,3 +146,16 @@ plot(s$SD3, type="l");plot(s$Mean3, type="l")
 plot(s$audioA, type="l"); plot(s$audioB, type="l")
 plot(s$trigger)
 
+###############################
+
+#### data from an entire area (pixel by pixel)
+
+a <- read.table(paste0(folder, "areaData.txt"), sep = "\t", header=TRUE)
+a[,1] <- NULL
+names(a) <- c("x", "y", "t")
+
+o <- data.frame(sort(a$t, decreasing=TRUE)) %>%
+  rename(t = sort.a.t..decreasing...TRUE.) %>%
+  slice(1:(nrow(o)*0.1)) # if you want a different amount of pixels (instead of 10%), just change the 0.1 here
+
+t <- mean(o$t) # this is the temperature for this given ROI (based on the 10% warmest pixels)
