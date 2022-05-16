@@ -150,12 +150,22 @@ plot(s$trigger)
 
 #### data from an entire area (pixel by pixel)
 
-a <- read.table(paste0(folder, "areaData.txt"), sep = "\t", header=TRUE)
-a[,1] <- NULL
-names(a) <- c("x", "y", "t")
+a <- read.table(paste0(folder, "areaData3.txt"), sep = "\t", header=TRUE)
+a <- a[,grepl("C", names(a)) & !grepl("px", names(a))]
+names(a) <- gsub("....C.", "-t", names(a))
+a <- a %>% mutate_at(names(a), as.numeric)
 
-o <- data.frame(sort(a$t, decreasing=TRUE)) %>%
-  rename(t = sort.a.t..decreasing...TRUE.) %>%
+temp <- data.frame(matrix(nrow=0, ncol=4))
+names(temp) <- c("speaker", "frame", "ROI", "temperature")
+  
+for(i in 1:ncol(a)){
+  frame <- 1
+  sp <- "FWR-B"
+  o <- data.frame(sort(a[,i], decreasing=TRUE)) %>%
   slice(1:(nrow(o)*0.1)) # if you want a different amount of pixels (instead of 10%), just change the 0.1 here
-
-t <- mean(o$t) # this is the temperature for this given ROI (based on the 10% warmest pixels)
+  temp[nrow(temp)+1,] <- c(sp, frame, gsub("-t", "", names(a[i])), as.numeric(mean(o[,1]))) # this is the temperature for this given ROI (based on the 10% warmest pixels)
+  temp$temperature <- as.numeric(temp$temperature)
+  if(i == ncol(a)){
+    temp[nrow(temp)+1,] <- c(sp, frame, "Face", mean(temp$temperature))
+  }
+}
