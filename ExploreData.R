@@ -150,22 +150,35 @@ plot(s$trigger)
 
 #### data from an entire area (pixel by pixel)
 
-a <- read.table(paste0(folder, "areaData3.txt"), sep = "\t", header=TRUE)
-a <- a[,grepl("C", names(a)) & !grepl("px", names(a))]
-names(a) <- gsub("....C.", "-t", names(a))
-a <- a %>% mutate_at(names(a), as.numeric)
+folder2 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/FWR/"
 
-temp <- data.frame(matrix(nrow=0, ncol=4))
-names(temp) <- c("speaker", "frame", "ROI", "temperature")
+files <- list.files(folder2)
+
+dat <- data.frame(matrix(nrow=0, ncol=4))
+names(dat) <- c("speaker", "frame", "ROI", "temperature")
+
+for(f in files){
+  a <- read.table(paste0(folder2, f), sep = "\t", header=TRUE)
+  a <- a[,grepl("C", names(a)) & !grepl("px", names(a))]
+  names(a) <- gsub("....C.", "", names(a))
+  a <- a %>% mutate_at(names(a), as.numeric)
   
-for(i in 1:ncol(a)){
-  frame <- 1
-  sp <- "FWR-B"
-  o <- data.frame(sort(a[,i], decreasing=TRUE)) %>%
-  slice(1:(nrow(o)*0.1)) # if you want a different amount of pixels (instead of 10%), just change the 0.1 here
-  temp[nrow(temp)+1,] <- c(sp, frame, gsub("-t", "", names(a[i])), as.numeric(mean(o[,1]))) # this is the temperature for this given ROI (based on the 10% warmest pixels)
-  temp$temperature <- as.numeric(temp$temperature)
-  if(i == ncol(a)){
-    temp[nrow(temp)+1,] <- c(sp, frame, "Face", mean(temp$temperature))
+  temp <- data.frame(matrix(nrow=0, ncol=4))
+  names(temp) <- c("speaker", "frame", "ROI", "temperature")
+  
+  for(i in 1:ncol(a)){
+    frame <- substr(f, 5, 6)
+    frame <- gsub("\\.", "", frame)
+    sp <- paste0(substr(f, 1, 3), "-", substr(names(a[i]), nchar(names(a[i])), nchar(names(a[i]))))
+    
+    o <- data.frame(sort(a[,i], decreasing=TRUE)) %>%
+      slice(1:(nrow(o)*0.1)) # if you want a different amount of pixels (instead of 10%), just change the 0.1 here
+    temp[nrow(temp)+1,] <- c(sp, frame, gsub("\\..*", "", names(a[i])), as.numeric(mean(o[,1])))
+    temp$temperature <- as.numeric(temp$temperature)
+    if(i == ncol(a)){
+      temp[nrow(temp)+1,] <- c(sp, frame, "Face", mean(temp$temperature))
+    }
   }
+  
+  dat <- rbind(dat, temp)
 }
