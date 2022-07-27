@@ -1,6 +1,25 @@
 # Explore data from thermal camera
 
-library(tidyverse)
+# Bit of code taken from https://vbaliga.github.io/verify-that-r-packages-are-installed-and-loaded/
+# to install and load all necessary packages
+
+## First specify the packages of interest
+packages = c("tidyverse")
+
+## Now load or install&load all
+package.check <- lapply(
+  packages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  }
+)
+# end
+
+# Start of my own code
+
 
 folder <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/ExploreData/"
 
