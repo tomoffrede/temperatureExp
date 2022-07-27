@@ -30,6 +30,8 @@ package.check <- lapply(
 
 # Start of my own code
 
+# specify the folder where all the files with the temperature data are
+# make sure that the name of the folder ends with "/"
 folder2 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/FWR/"
 
 files <- list.files(folder2)
@@ -82,3 +84,16 @@ ggplot(dat, aes(frame, temperature))+
   geom_point()+
   geom_line()+
   facet_grid(speaker~ROI)
+
+## If you want to plot the data of only one speaker, do this:
+## Delete the number sign (#) from the beginning of the lines below with code
+## 1. Change for the code of the speaker
+
+# dat <- dat %>% filter(speaker=="XXX")
+
+## 2. Run the ggplot() code again
+
+# ggplot(dat, aes(frame, temperature))+
+#   geom_point()+
+#   geom_line()+
+#   facet_grid(speaker~ROI)
