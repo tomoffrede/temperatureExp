@@ -142,10 +142,8 @@ daz <- dam %>%
 # Plots
 
 folder1 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoExclusion/"
-folder2 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Z-NoExclusion/"
 folder3 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoOutliers/"
 folder4 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoExclusion/"
-folder5 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Z-NoExclusion/"
 folder6 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoOutliers/"
 
 # subject per ROI, raw temperature, no outliers excluded
@@ -169,27 +167,6 @@ for(s in unique(dam$speaker)){
     facet_wrap(~ROI)+
     theme(title = element_text(color = titlecolor))
   ggsave(paste0(folder4, s, ".png"))
-}
-
-# subject per ROI, Z-scored temperature, no outliers excluded
-
-for(s in unique(daz$speaker)){
-  if(unique(daz$Condition[daz$speaker==s]) == "con"){
-    con <- "Condition Boring"
-  } else if(unique(daz$Condition[daz$speaker==s]) == "exp"){
-    con <- "Condition Close"
-  }
-  rcit <- paste0("Questionnaire: ", unique(daz$RCIT[daz$speaker==s]))
-  if(grepl("Boring", con)){
-    titlecolor <- "red"
-  } else {titlecolor <- "blue"}
-  ggplot(daz %>% filter(speaker == s), aes(frame, Tz)) +
-    geom_point()+
-    geom_line()+
-    ggtitle(paste(s, con, rcit, sep = ", "))+
-    facet_wrap(~ROI)+
-    theme(title = element_text(color = titlecolor))
-  ggsave(paste0(folder5, s, ".png"))
 }
 
 # subject per ROI, raw temperature, outliers excluded
@@ -231,17 +208,6 @@ for(r in unique(dam$ROI)){
     ggtitle(paste(r))+
     facet_wrap(~speaker)
   ggsave(paste0(folder1, r, ".png"))
-}
-
-# ROI per subject, Z-scored temperature, no outliers excluded
-
-for(r in unique(dam$ROI)){
-  ggplot(dam %>% filter(ROI == r), aes(frame, Tz)) +
-    geom_point(aes(color=Condition))+
-    geom_line(aes(color=Condition))+
-    ggtitle(paste(r))+
-    facet_wrap(~speaker)
-  ggsave(paste0(folder2, r, ".png"))
 }
 
 # ROI per subject, raw temperature, outliers excluded
