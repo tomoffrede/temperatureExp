@@ -8,8 +8,6 @@
 # 1: left
 # 2: right
 
-# code taken from script ExploreData.R
-
 # Bit of code taken from https://vbaliga.github.io/verify-that-r-packages-are-installed-and-loaded/
 # to install and load all necessary packages
 
@@ -29,7 +27,7 @@ package.check <- lapply(
 )
 remove(packages)
 remove(package.check)
-# end
+# end of code copied
 
 # Start of my own code
 
@@ -37,8 +35,8 @@ remove(package.check)
 
 # specify the folder where all the files with the temperature data are
 # make sure that the name of the folder ends with "/"
-folder <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/"
-folderTXT <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/TempTXT/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/"
+folderTXT <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempTXT/"
 
 files <- list.files(folderTXT, "txt")
 files <- files[files!="KPB-11.txt"]
@@ -141,10 +139,10 @@ daz <- dam %>%
 
 # Plots
 
-folder1 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoExclusion/"
-folder3 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoOutliers/"
-folder4 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoExclusion/"
-folder6 <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoOutliers/"
+folder1 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoExclusion/"
+folder3 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/Plots/ROIPerSubject-Raw-NoOutliers/"
+folder4 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoExclusion/"
+folder6 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/Plots/SubjectPerROI-Raw-NoOutliers/"
 
 # subject per ROI, raw temperature, no outliers excluded
 
@@ -152,12 +150,12 @@ dam <- dam0
 
 for(s in unique(dam$speaker)){
   if(unique(dam$Condition[dam$speaker==s]) == "con"){
-    con <- "Condition Boring"
+    con <- "Condition Impersonal"
   } else if(unique(dam$Condition[dam$speaker==s]) == "exp"){
-    con <- "Condition Close"
+    con <- "Condition Personal"
   }
   rcit <- paste0("Questionnaire: ", unique(dam$RCIT[dam$speaker==s]))
-  if(grepl("Boring", con)){
+  if(grepl("Impersonal", con)){
     titlecolor <- "red"
   } else {titlecolor <- "blue"}
   ggplot(dam %>% filter(speaker == s), aes(frame, temperature)) +
@@ -173,15 +171,15 @@ for(s in unique(dam$speaker)){
 
 for(s in unique(daz$speaker)){
   if(unique(daz$Condition[daz$speaker==s]) == "con"){
-    con <- "Condition Boring"
+    con <- "Condition Impersonal"
   } else if(unique(daz$Condition[daz$speaker==s]) == "exp"){
-    con <- "Condition Close"
+    con <- "Condition Personal"
   }
   rcit <- paste0("Questionnaire: ", unique(daz$RCIT[daz$speaker==s]))
-  if(grepl("Boring", con)){
+  if(grepl("Impersonal", con)){
     titlecolor <- "red"
   } else {titlecolor <- "blue"}
-  ggplot(daz %>% filter(speaker == s, Tz < 2), aes(frame, temperature)) +
+  ggplot(daz %>% filter(speaker == s, abs(Tz) < 2), aes(frame, temperature)) +
     geom_point()+
     geom_line()+
     ggtitle(paste(s, con, rcit, sep = ", "))+
@@ -194,10 +192,11 @@ for(s in unique(daz$speaker)){
 dam0 <- dam
 
 dam <- dam %>%
-  mutate(Condition = ifelse(Condition == "con", "Boring", "Close")) %>% 
+  mutate(Condition = ifelse(Condition == "con", "Impersonal", "Personal")) %>% 
   group_by(speaker) %>% 
   mutate(speaker = paste(speaker, unique(RCIT), sep="-")) %>% 
-  ungroup
+  ungroup %>% 
+  filter(ROI != "Face")
 
 # ROI per subject , raw temperature, no outliers excluded
 
@@ -213,11 +212,47 @@ for(r in unique(dam$ROI)){
 # ROI per subject, raw temperature, outliers excluded
 
 for(r in unique(dam$ROI)){
-  ggplot(dam %>% filter(ROI == r, Tz < 2), aes(frame, Tz)) +
+  ggplot(dam %>% filter(ROI == r, abs(Tz) < 2), aes(frame, temperature)) +
     geom_point(aes(color=Condition))+
     geom_line(aes(color=Condition))+
     ggtitle(paste(r))+
     facet_wrap(~speaker)
   ggsave(paste0(folder3, r, ".png"))
+}
+
+dam1 <- dam
+
+dam <- dam1
+
+dam <- dam %>% 
+  group_by(speaker) %>% 
+  mutate(Tz = (temperature - mean(temperature, na.rm=TRUE))/sd(temperature, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  filter(abs(Tz) < 2) %>% 
+  group_by(ROI, frame) %>% 
+  mutate(tempMeanAll = mean(temperature)) %>% 
+  ungroup() %>% 
+  group_by(ROI, Condition, frame) %>% 
+  mutate(tempMeanCond = mean(temperature)) %>% 
+  ungroup()
+  
+
+# Average of all participants for each ROI
+for(r in unique(dam$ROI)){
+  ggplot(dam %>% filter(ROI == r), aes(frame, tempMeanAll)) +
+    geom_point()+
+    geom_line()+
+    ggtitle(paste(r))
+  ggsave(paste0(folder3, r, "-AllParticipants.png"))
+}
+
+
+# Average of all participants of each condition for each ROI
+for(r in unique(dam$ROI)){
+  ggplot(dam %>% filter(ROI == r), aes(frame, tempMeanCond)) +
+    geom_point(aes(color=Condition))+
+    geom_line(aes(color=Condition))+
+    ggtitle(paste(r))
+  ggsave(paste0(folder3, r, "-AllParticipantsWithCondition.png"))
 }
 
