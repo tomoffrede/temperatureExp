@@ -6,6 +6,9 @@ library(tidyverse)
 library(tuneR)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+folderAllTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids/"
+folderAllW <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/"
+folderAllWF <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWavFiltered/"
 dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO", "OAL", "OXQ", "QRT", "SGB", "SUK", "TTN", "TTY", "VDE", "ZNV")
 
 # # Create folders
@@ -13,18 +16,29 @@ dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO",
 # for(d in dyads){
 #   dir.create(paste0(folder, d))
 # }
+
+# # Copy files into their appropriate folder
 # 
-# # Copy textgrids into their appropriate folder
+t <- list.files(folderAllWF, "wav")
+
+for(f in t){
+  for(d in dyads){
+    folderCurrentDyad <- paste0(folder, d, "/")
+    if(grepl(d, f)){
+      file <- paste0(folderAllWF, f, "/")
+      file.copy(file, folderCurrentDyad)
+    }
+  }
+}
+
+# # Copy files from their individual folder into a folder with all speakers
 # 
-# t <- list.files(folder, "TextGrid")
-# 
-# for(f in t){
-#   for(d in dyads){
-#     folderCurrentDyad <- paste0(folder, d, "/")
-#     if(grepl(d, f)){
-#       file <- paste0(folder, f, "/")
-#       file.copy(file, folderCurrentDyad)
-#     }
+# for(d in dyads){
+#   folderC <- paste0(folder, d, "/")
+#   files <- list.files(folderC, "wav")
+#   for(f in files){
+#     file <- paste0(folderC, f, "/")
+#     file.copy(file, folderAllW)
 #   }
 # }
 
@@ -44,52 +58,63 @@ for(d in dyads){
   }
 }
 diapix <- diapix %>% 
-  mutate_at(c("lengthL", "lengthR"), as.numeric)
+  mutate_at(c("lengthL"), as.numeric) %>% 
+  select(-lengthR) # all info in left channel
+hist(diapix$lengthL)
 
-# Delete short files
-for(i in 1:nrow(diapix)){
-  if(diapix$lengthL[i] < 10){ # 10 seconds
-    file.remove(paste0(folder, diapix$dyad[i], diapix$file[i]))
-  }
-  
-}
+s <- diapix %>% 
+  filter(lengthL < 100)
+hist(s$lengthL)
 
+# # Delete short files
+# for(i in 1:nrow(diapix)){
+#   if(diapix$lengthL[i] < 10){ # 10 seconds
+#     file.remove(paste0(folder, diapix$dyad[i], "/", diapix$file[i]))
+#   }
+# }
 
 # Rename files
 
-# d="FXO"
-for(d in dyads){
-  folderC <- paste0(folder, d, "/")
-  
-  # wav files
-  files <- list.files(folderC, "wav")
-  for(f in files){
-    if(grepl("DiapixA", f)){name <- "D1A"}
-    if(grepl("DiapixB", f)){name <- "D1B"}
-    if(grepl("DiapixA2", f)){name <- "D2A"}
-    if(grepl("DiapixB2", f)){name <- "D2B"}
-    if(grepl("List1A", f)){name <- "L1A"}
-    if(grepl("List1B", f)){name <- "L1B"}
-    if(grepl("List2A", f)){name <- "L2A"}
-    if(grepl("List2B", f)){name <- "L2B"}
-    if(grepl("List3A", f)){name <- "L3A"}
-    if(grepl("List3B", f)){name <- "L3B"}
-   file.rename(from = paste0(folderC, f),
-               to = paste0(folderC, d, "-", name, ".wav")) 
-  }
+# # Option 1
+# 
+# for(d in dyads){
+#   folderC <- paste0(folder, d, "/")
+#   
+#   # wav files
+#   files <- list.files(folderC)
+#   for(f in files){
+#     if(grepl("Diapix", f)){name <- "D1"}
+#     if(grepl("DiapixA2", f)){name <- "D2"}
+#     if(grepl("DiapixB2", f)){name <- "D2"}
+#     if(grepl("D1", f)){name <- "D1"}
+#     if(grepl("D2", f)){name <- "D2"}
+#     if(grepl("List1", f)){name <- "L1"}
+#     if(grepl("List1", f)){name <- "L1"}
+#     if(grepl("List2", f)){name <- "L2"}
+#     if(grepl("List2", f)){name <- "L2"}
+#     if(grepl("List3", f)){name <- "L3"}
+#     if(grepl("List3", f)){name <- "L3"}
+#     if(grepl("A", f)){speaker <- "A"}
+#     if(grepl("B", f)){speaker <- "B"}
+#     
+#     if(grepl("wav", f)){
+#       file.rename(from = paste0(folderC, f),
+#                   to = paste0(folderC, d, "-", name, "-", speaker, ".wav"))
+#     }
+#     
+#     if(grepl("TextGrid", f)){
+#       file.rename(from = paste0(folderC, f),
+#                   to = paste0(folderC, d, "-", name, ".TextGrid"))
+#     }
+#   }
+# }
+
+# Option 2
+
+files <- list.files(folderAllWF, "wav")
+
+for(f in files){
+  newName <- gsub(".wav", "-Filtered.wav", f)
+  file.rename(from = paste0(folderAllWF, f),
+              to = paste0(folderAllWF, newName))
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
