@@ -5,11 +5,20 @@
 library(tidyverse)
 library(tuneR)
 
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
+folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/silTextGrids/"
 folderAllTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids/"
 folderAllW <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/"
-folderAllWF <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWavFiltered/"
+folderAllWF <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO", "OAL", "OXQ", "QRT", "SGB", "SUK", "TTN", "TTY", "VDE", "ZNV")
+
+# Copy all files from one file to another
+
+# og <- list.files(folder, "sil.TextGrid")
+# for(o in og){
+#   file.copy(from = paste0(folder, o),
+#             to = paste0(folder2, o))
+# }
 
 # # Create folders
 # 
@@ -18,7 +27,7 @@ dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO",
 # }
 
 # # Copy files into their appropriate folder
-# 
+
 t <- list.files(folderAllWF, "wav")
 
 for(f in t){
@@ -31,16 +40,16 @@ for(f in t){
   }
 }
 
-# # Copy files from their individual folder into a folder with all speakers
-# 
-# for(d in dyads){
-#   folderC <- paste0(folder, d, "/")
-#   files <- list.files(folderC, "wav")
-#   for(f in files){
-#     file <- paste0(folderC, f, "/")
-#     file.copy(file, folderAllW)
-#   }
-# }
+# Copy files from their individual folder into a folder with all speakers
+
+for(d in dyads){
+  folderC <- paste0(folder, d, "/")
+  files <- list.files(folderC, "txt")
+  for(f in files){
+    file <- paste0(folderC, f, "/")
+    file.copy(file, folderAllWF)
+  }
+}
 
 # See which Diapix files are legit and which don't have actual data
 
@@ -111,10 +120,10 @@ hist(s$lengthL)
 
 # Option 2
 
-files <- list.files(folderAllWF, "wav")
+files <- list.files(folderAllWF, "TextGrid")
 
 for(f in files){
-  newName <- gsub(".wav", "-Filtered.wav", f)
+  newName <- gsub("TextGrid", "-OG.TextGrid", f)
   file.rename(from = paste0(folderAllWF, f),
               to = paste0(folderAllWF, newName))
 }
