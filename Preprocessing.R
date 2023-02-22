@@ -17,20 +17,58 @@ TGv <- list.files(folderSpeech, "TextGrid") # v for vector
 files <- data.frame(TXT) %>% 
   mutate(TG = case_when(substr(TXT, 1, 6) %in% substr(TGv, 1, 6) ~ TGv[match(substr(TXT, 1, 6), substr(TGv, 1, 6))]))
 
-f0 <- data.frame(matrix(nrow=0, ncol=))
-names(f0) <- c("file", "speaker", "period", "onset", "offset", "f0raw")
+f0 <- data.frame(matrix(nrow=0, ncol=8))
+names(f0) <- c("file", "speaker", "turn", "IPU", "onset", "offset", "f0raw", "label")
 
 for(i in 1:nrow(files)){
-  if(grepl("-A-", files$TXT[i])){speaker <- "A"}
-  if(grepl("-B-", files$TXT[i])){speaker <- "B"}
-  if(speaker == "A"){tier <- "speakerA"}
-  if(speaker == "B"){tier <- "speakerB"}
-  
+  speaker <- ifelse(grepl("-A-", files$TXT[i]), "A", "B")
+  turnTier <- paste0("speaker", speaker)
+  turnOtherTier <- paste0("speaker", ifelse(speaker=="A", "A" , "B"))
+  silenceTier <- paste0("silence", speaker)
+  turnCount <- 0
   
   txt <- read.table(paste0(folderSpeech, files$TXT[i]), header = TRUE)
   tg <- tg.read(paste0(folderSpeech, files$TG[i]), encoding=detectEncoding(paste0(folderSpeech, files$TG[i])))
   
-  for(for(p in 1:tg.getNumberOfIntervals(tg, tier)))
+  
+  for(p in 1:tg.getNumberOfIntervals(tg, turnTier)){
+    if(tg.getLabel(tg, turnTier, p) != ""){
+      ipuCount <- 0
+      turnCount <- turnCount + 1
+      turnOnset <- as.numeric(tg.getIntervalStartTime(tg, turnTier, p))
+      turnOffset <- as.numeric(tg.getIntervalEndTime(tg, turnTier, p))
+      for(p in 1:tg.getNumberOfIntervals(tg, silenceTier)){
+        if(tg.getLabel(tg, silenceTier, p)=="sounding"){
+          startIPU <- as.numeric(tg.getIntervalStartTime(tg, silenceTier, p))
+          endIPU <- as.numeric(tg.getIntervalEndTime(tg, silenceTier, p))
+          if(turnOnset <= startIPU){ # doing two separate if() statements because there's some confusion with the use of &(&)
+            if(turnOffset >= endIPU){
+              ipuCount <- ipuCount + 1
+              f <- data.frame(matrix(nrow=0, ncol=3))
+              names(f) <- c("f0mean", "f0sd", "f0med")
+              for(l in 1:nrow(txt)){
+                if(txt$onset[l] >= startIPU){
+                  if(txt$offset[l] <= endIPU){
+                    extract_textgrid(tg, "speakerA")
+                    # if(tg.getLabel(tg, turnOtherTier, tg.getIntervalIndexAtTime()))
+                      f[nrow(f)+1,] <- c(as.numeric(txt$f0mean[l]),
+                                         as.numeric(txt$f0sd[l]),
+                                         as.numeric(txt$f0med[l]))
+                  }
+                }
+              }
+              if(any(!is.na(f))){
+                f0[nrow(f0)+1,] <- c(substr(files$filesTG[i], 1, 6),
+                                     speaker,
+                                     turnCount,
+                                     ipuCount,
+                                     mean(f$f0mean, na.rm=TRUE),
+                                     mean(f$f0sd, na.rm=TRUE),
+                                     mean(f$f0med, na.rm=TRUE),
+                                     tg.getLabel(tg, turnTier, p))
+              }
+      }
+  }
   
   f0[nrow(f0)+1,] <- c(substr(files$TXT[i], 1, 6),
                        speaker,
@@ -41,7 +79,6 @@ for(i in 1:nrow(files)){
   
   
 }
-
 
 
 
