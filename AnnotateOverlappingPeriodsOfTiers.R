@@ -99,5 +99,5 @@ for(f in files){
   }
   
   file <- gsub(".TextGrid", "-Overlap.TextGrid", f)
-  tg.write()
+  tg.write(tg, paste0(folder, file))
 }
