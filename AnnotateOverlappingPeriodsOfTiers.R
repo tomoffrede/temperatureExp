@@ -101,3 +101,51 @@ for(f in files){
   file <- gsub(".TextGrid", "-Overlap.TextGrid", f)
   tg.write(tg, paste0(folder, file))
 }
+
+###########
+
+# Optional additional step:
+# In the original `speaker` tiers, transform any overlap period into a blank interval
+
+files <- list.files(folder, "\\.TextGrid")
+
+for(f in files){
+  tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  
+  for(i in 1:tg.getNumberOfIntervals(tg, "overlap")){
+    if(tg.getLabel(tg, "overlap", i) == "overlap"){
+      leftBound <- as.numeric(tg.getIntervalStartTime(tg, "overlap", i))
+      rightBound <- as.numeric(tg.getIntervalEndTime(tg, "overlap", i))
+      for(speakerTier in c("speakerA", "speakerB")){
+        # following 4 if statements: to make sure the "overlap" boundary isn't the same as the boundary that already exists in the speakerTier
+        if(leftBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+          if(leftBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+            tg <- tg.insertBoundary(tg, speakerTier, time=leftBound, label="s")
+          }
+        }
+        if(rightBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+          if(rightBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+            tg <- tg.insertBoundary(tg, speakerTier, time=rightBound, label="s")
+          }
+        }
+      }
+    }
+    }
+  
+  for(speakerTier in c("speakerA", "speakerB")){
+    for(s in 1:tg.getNumberOfIntervals(tg, speakerTier)){
+      for(o in 1:tg.getNumberOfIntervals(tg, "overlap")){
+        if(tg.getLabel(tg, "overlap", o) == "overlap"){
+          if(tg.getIntervalStartTime(tg, speakerTier, s) == tg.getIntervalStartTime(tg, "overlap", o)){
+            if(tg.getIntervalEndTime(tg, speakerTier, s) == tg.getIntervalEndTime(tg, "overlap", o)){
+              tg <- tg.setLabel(tg, speakerTier, s, "overlap")
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  file <- gsub(".TextGrid", "-OverlapSp.TextGrid", f)
+  tg.write(tg, paste0(folder, file))
+}
