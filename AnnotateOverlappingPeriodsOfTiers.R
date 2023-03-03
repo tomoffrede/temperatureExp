@@ -6,9 +6,10 @@
 library(tidyverse)
 library(rPraat)
 
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/HAG/compare/"
 
 files <- list.files(folder, "\\.TextGrid")
+files <- files[!grepl("OG|sil", files)]
 
 intervals <- data.frame(matrix(nrow=0, ncol=6))
 names(intervals) <- c("file", "speaker", "count", "label", "onset", "offset")
@@ -107,7 +108,7 @@ for(f in files){
 # Optional additional step:
 # In the original `speaker` tiers, transform any overlap period into a blank interval
 
-files <- list.files(folder, "\\.TextGrid")
+files <- list.files(folder, "Overlap.TextGrid")
 
 for(f in files){
   tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
@@ -116,23 +117,24 @@ for(f in files){
     if(tg.getLabel(tg, "overlap", i) == "overlap"){
       leftBound <- as.numeric(tg.getIntervalStartTime(tg, "overlap", i))
       rightBound <- as.numeric(tg.getIntervalEndTime(tg, "overlap", i))
-      for(speakerTier in c("speakerA", "speakerB")){
+      for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+        label <- ifelse(grepl("silence", speakerTier), "sounding", "s")
         # following 4 if statements: to make sure the "overlap" boundary isn't the same as the boundary that already exists in the speakerTier
         if(leftBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
           if(leftBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
-            tg <- tg.insertBoundary(tg, speakerTier, time=leftBound, label="s")
+            tg <- tg.insertBoundary(tg, speakerTier, time=leftBound, label=label)
           }
         }
         if(rightBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
           if(rightBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
-            tg <- tg.insertBoundary(tg, speakerTier, time=rightBound, label="s")
+            tg <- tg.insertBoundary(tg, speakerTier, time=rightBound, label=label)
           }
         }
       }
     }
     }
   
-  for(speakerTier in c("speakerA", "speakerB")){
+  for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
     for(s in 1:tg.getNumberOfIntervals(tg, speakerTier)){
       for(o in 1:tg.getNumberOfIntervals(tg, "overlap")){
         if(tg.getLabel(tg, "overlap", o) == "overlap"){
@@ -145,7 +147,6 @@ for(f in files){
       }
     }
   }
-  
-  file <- gsub(".TextGrid", "-OverlapSp.TextGrid", f)
+  file <- gsub("Overlap", "OverlapSp", f)
   tg.write(tg, paste0(folder, file))
 }
