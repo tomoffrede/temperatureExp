@@ -5,31 +5,33 @@ library(tuneR)
 library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/"
-folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/TestF0Extraction/AllWAV/"
-folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/TestF0Extraction/AllWAV/"
+folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/compare/"
+folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/compare/"
 `%!in%` <- Negate(`%in%`)
 
 m <- read.csv(paste0(folder, "metadata.csv"))
 
 TXT <- list.files(folderSpeech, "\\.txt")
-TGv <- list.files(folderTG, "OverlapSp.TextGrid") # v for vector
+TXT <- TXT[!grepl("Register", TXT)]
+# TGv <- list.files(folderTG, "OverlapSp.TextGrid") # v for vector
+TGv <- list.files(folderTG, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$") # v for vector
 
 files <- data.frame(TXT) %>% 
   mutate(TG = case_when(substr(TXT, 1, 6) %in% substr(TGv, 1, 6) ~ TGv[match(substr(TXT, 1, 6), substr(TGv, 1, 6))]))
 
-f0 <- data.frame(matrix(nrow=0, ncol=10))
-names(f0) <- c("file", "speaker", "turn", "IPU", "f0mean", "f0med", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset")
+f0 <- data.frame(matrix(nrow=0, ncol=11))
+names(f0) <- c("file", "speaker", "turn", "IPU", "f0mean", "f0med", "f0sd", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset")
 
 for(i in 1:nrow(files)){
-  speaker <- ifelse(grepl("-A-", files$TXT[i]), "A", "B")
+  speaker <- ifelse(grepl("-A", files$TXT[i]), "A", "B")
   turnTier <- paste0("speaker", speaker)
   silenceTier <- paste0("silence", speaker)
   turnCount <- 0
   
-  txt <- read.table(paste0(folderSpeech, files$TXT[i]), header = TRUE)
+  txt <- read.table(paste0(folderSpeech, files$TXT[i]), header = TRUE, na.strings = "--undefined--")
   tg <- tg.read(paste0(folderSpeech, files$TG[i]), encoding=detectEncoding(paste0(folderSpeech, files$TG[i])))
   
-  for(p in 1:tg.getNumberOfIntervals(tg, turnTier)){
+    for(p in 1:tg.getNumberOfIntervals(tg, turnTier)){
     if(tg.getLabel(tg, turnTier, p) == "s"){
       ipuCount <- 0
       turnCount <- turnCount + 1
@@ -49,17 +51,18 @@ for(i in 1:nrow(files)){
         if(tg.getLabel(tg, silenceTier, s)=="sounding"){
           startIPU <- as.numeric(tg.getIntervalStartTime(tg, silenceTier, s))
           endIPU <- as.numeric(tg.getIntervalEndTime(tg, silenceTier, s))
-          if((startIPU >= turnOnset - 0.05 & startIPU < turnOffset) | (endIPU > turnOnset & endIPU <= turnOffset + 0.05)){ # adding an extra 0.05-second window in case
+          if((startIPU >= turnOnset & startIPU < turnOffset) | (endIPU > turnOnset & endIPU <= turnOffset)){
             ipuCount <- ipuCount + 1
-            f <- data.frame(matrix(nrow=0, ncol=2))
-            names(f) <- c("f0mean", "f0med")
+            f <- data.frame(matrix(nrow=0, ncol=3))
+            names(f) <- c("f0mean", "f0med", "f0sd")
             for(l in 1:nrow(txt)){
-              if(txt$onset[l] >= startIPU){ 
-                if(txt$offset[l] <= endIPU){
-                  if(txt$onset[l] >= turnOnset){
-                    if(txt$offset[l] <= turnOffset){
+              if(txt$onset[l] >= startIPU - 0.001){ # adding a 0.001 window because the txt file rounds up the onset and offset times
+                if(txt$offset[l] <= endIPU + 0.001){
+                  if(txt$onset[l] >= turnOnset - 0.001){
+                    if(txt$offset[l] <= turnOffset + 0.001){
                       f[nrow(f)+1,] <- c(as.numeric(txt$f0mean[l]),
-                                         as.numeric(txt$f0med[l]))
+                                         as.numeric(txt$f0med[l]),
+                                         as.numeric(txt$f0sd[l]))
                     }
                   }
                 }
@@ -72,6 +75,7 @@ for(i in 1:nrow(files)){
                                    ipuCount,
                                    mean(f$f0mean, na.rm=TRUE),
                                    mean(f$f0med, na.rm=TRUE),
+                                   mean(f$f0sd, na.rm=TRUE),
                                    turnOnset, turnOffset, startIPU, endIPU)
             }
           }
@@ -87,20 +91,24 @@ table(paste0(f0$file, f0$speaker))
 
 dat <- f0 %>% 
   mutate_at(c("f0mean", "f0med", "turn"), as.numeric) %>%
-  mutate(file = ifelse(grepl("AML|FWR", file),
+  mutate(file = ifelse(grepl("D1|D2", file),
                        paste0(file, "-", "BAD"), paste0(file, "-", "GOOD")),
+         qual = ifelse(grepl("D1|D2", file), "bad", "good"),
          task = substr(file, 5, 6),
-         prevTurn = ifelse(speaker == "A", turn - 1, turn),
          prevf0 = NA) %>% 
   mutate_at(c("file", "speaker", "IPU"), as.factor) %>% 
   group_by(file, speaker) %>%
   mutate(index = 1:n()) %>% 
   ungroup()
 
-
 ggplot(dat, aes(index, f0mean))+
-  geom_point(aes(color=speaker))+
+  geom_boxplot(aes(color=speaker))+
   facet_wrap(~file, scales="free")
+
+ggplot(dat, aes(speaker, f0mean))+
+  geom_boxplot(aes(color=qual))
+
+summary(lm(f0mean ~ qual , dat %>% filter(speaker=="A")))
 
 for(i in 1:nrow(dat)){
   prevf0 <- dat$f0mean[dat$file == dat$file[i] &
