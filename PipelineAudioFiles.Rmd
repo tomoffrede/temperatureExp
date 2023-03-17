@@ -1,0 +1,466 @@
+---
+title: "Pipeline for Audio Files"
+author: "Tom Offrede"
+date: "2023-03-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Pipeline for processing the audio files from this experiment
+Starting point: a folder with the dyads' wav files and simple textgrids containing (manual) turn annotations
+
+```{r}
+library(rPraat)
+library(tidyverse)
+library(tuneR)
+
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/KPB/compare/"
+```
+
+Run `GetSpeakerRegister.praat` script on the wav files
+
+Annotate voice activity on Praat -- use register obtained above and minimum silence threshold of 0.15 seconds
+
+Multiple steps:
+
+```{r}
+# - Check that tiers are speakerA and speakerB (not speaker1 and speaker2)
+# - And check that the turn intervals are annotated as "s" (and no blank spaces or anything else)
+
+TGv <- list.files(folder, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$") # v for vector
+
+for(t in TGv){
+  tg <- tg.read(paste0(folder, t), encoding=detectEncoding(paste0(folder, t)))
+  if(tg.getTierName(tg, 1) == "speaker1"){
+    tg <- tg.setTierName(tg, 1, "speakerA")
+  }
+  if(tg.getTierName(tg, 2) == "speaker2"){
+    tg <- tg.setTierName(tg, 2, "speakerB")
+  }
+  for(tier in c("speakerA", "speakerB")){
+    for(i in 1:tg.getNumberOfIntervals(tg, tier)){
+      if(grepl("s", tg.getLabel(tg, tier, i))){
+        if(tg.getLabel(tg, tier, i) != "s"){
+          tg <- tg.setLabel(tg, tier, i, "s")
+        }
+      }
+    }
+  }
+  tg.write(tg, paste0(folder, t))
+}
+
+# - Rename the voice activity TextGrids to contain the string "sil"
+
+files <- list.files(folder, "\\.TextGrid")
+files <- files[grepl("-A|-B", files)]
+
+for(f in files){
+  newName <- gsub(".TextGrid", "-sil.TextGrid", f)
+  file.rename(from = paste0(folder, f),
+              to = paste0(folder, newName))
+}
+
+# - Rename original manually annotated files as “-OG”
+
+files <- list.files(folder, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
+
+for(f in files){
+  newName <- gsub(".TextGrid", "-OG.TextGrid", f)
+  file.rename(from = paste0(folder, f),
+              to = paste0(folder, newName))
+}
+
+# - Join OG’s tiers into voice annotated files
+
+fOG <- list.files(folder, "OG.TextGrid")
+fS <- list.files(folder, "sil.TextGrid")
+fSA <- fS[grepl("-A", fS)]
+fSB <- fS[grepl("-B", fS)]
+fW <- list.files(folder, "wav")
+fWA <- fW[grepl("-A", fW)]
+fWB <- fW[grepl("-B", fW)]
+
+files0 <- cbind(fSA, fSB)
+files1 <- cbind(files0, fWA)
+files2 <- cbind(files1, fWB)
+files <- data.frame(cbind(files2, fOG)) %>% 
+  rename("SA"="fSA", "SB"="fSB", "WA"="fWA", "WB"="fWB", "OG"="fOG") %>% 
+  mutate(worked1 = ifelse(substr(SA, 1, 6) == substr(SB, 1, 6), "worked!", "NO!!!"),
+         worked2 = ifelse(substr(SA, 1, 6) == substr(OG, 1, 6), "worked!", "NO!!!"),
+         worked3 = ifelse(substr(WA, 1, 6) == substr(SA, 1, 6), "worked!", "NO!!!"),
+         worked4 = ifelse(substr(WA, 1, 6) == substr(WB, 1, 6), "worked!", "NO!!!"))
+table(files$worked1)
+table(files$worked2)
+table(files$worked3)
+table(files$worked4)
+
+files <- files %>% select(-c("worked1":"worked4"))
+
+for(i in 1:nrow(files)){
+  sA <- tg.read(paste0(folder, files$SA[i]), encoding=detectEncoding(paste0(folder, files$SA[i])))
+  sB <- tg.read(paste0(folder, files$SB[i]), encoding=detectEncoding(paste0(folder, files$SB[i])))
+  wA <- readWave(paste0(folder, files$WA[i]))
+  wB <- readWave(paste0(folder, files$WB[i]))
+  og <- tg.read(paste0(folder, files$OG[i]), encoding=detectEncoding(paste0(folder, files$OG[i])))
+  
+  sA <- tg.setTierName(sA, "union", "silenceA")
+  sB <- tg.setTierName(sB, "union", "silenceB")
+  
+  dur <- (length(wA)/wA@samp.rate)
+  
+  new <- tg.createNewTextGrid(0, dur)
+  
+  new <- tg.insertNewIntervalTier(new, newInd=1, tg.getTierName(og, "speakerA"), tMin=0, tMax=tg.getEndTime(new))
+  for(n in 1:(tg.getNumberOfIntervals(og, "speakerA"))){
+    new <- tg.insertInterval(new,
+                             tg.getTierName(og, "speakerA"),
+                             tStart=tg.getIntervalStartTime(og, "speakerA", n),
+                             tEnd=ifelse(n == tg.getNumberOfIntervals(og, "speakerA"), # there may be a difference in the duration of original textgrid and wav file, so if this is the last interval, use the wav file duration for tEnd
+                                         dur - 0.01, # not allowed to have an interval ending exactly at the end of the file
+                                         tg.getIntervalEndTime(og, "speakerA", n)),
+                             label=tg.getLabel(og, "speakerA", n))
+  }
+  new <- tg.insertNewIntervalTier(new, newInd=2, tg.getTierName(og, "speakerB"), tMin=0, tMax=tg.getEndTime(new))
+  for(n in 1:(tg.getNumberOfIntervals(og, "speakerB"))){
+    new <- tg.insertInterval(new,
+                             tg.getTierName(og, "speakerB"),
+                             tStart=tg.getIntervalStartTime(og, "speakerB", n),
+                             tEnd=ifelse(n == tg.getNumberOfIntervals(og, "speakerB"), # there may be a difference in the duration of original textgrid and wav file, so if this is the last interval, use the wav file duration for tEnd
+                                         dur - 0.0000001,
+                                         tg.getIntervalEndTime(og, "speakerB", n)),
+                             label=tg.getLabel(og, "speakerB", n))
+  }
+  new <- tg.insertNewIntervalTier(new, newInd=3, tg.getTierName(sA, "silenceA"), tMin=0, tMax=tg.getEndTime(new))
+  for(n in 1:(tg.getNumberOfIntervals(sA, "silenceA"))){
+    new <- tg.insertInterval(new,
+                             tg.getTierName(sA, "silenceA"),
+                             tStart=tg.getIntervalStartTime(sA, "silenceA", n),
+                             tEnd=ifelse(n == tg.getNumberOfIntervals(sA, "silenceA"), # there was some issue with the last interval, so at the last interval, make the tEnd the end of the textgrid
+                                         dur - 0.0000001,
+                                         tg.getIntervalEndTime(sA, "silenceA", n)),
+                             label=tg.getLabel(sA, "silenceA", n))
+  }
+  new <- tg.insertNewIntervalTier(new, newInd=4, tg.getTierName(sB, "silenceB"), tMin=0, tMax=tg.getEndTime(new))
+  for(n in 1:(tg.getNumberOfIntervals(sB, "silenceB"))){
+    new <- tg.insertInterval(new,
+                             tg.getTierName(sB, "silenceB"),
+                             tStart=tg.getIntervalStartTime(sB, "silenceB", n),
+                             tEnd=ifelse(n == tg.getNumberOfIntervals(sB, "silenceB"), # there was some issue with the last interval, so at the last interval, make the tEnd the end of the textgrid
+                                         dur - 0.0000001,
+                                         tg.getIntervalEndTime(sB, "silenceB", n)),
+                             label=tg.getLabel(sB, "silenceB", n))
+  }
+  
+  name <- gsub("-OG", "-all", files$OG[i])
+  tg.write(new, paste0(folder, name))
+}
+
+# - Annotate sections with turn overlap — then add the overlap annotation to turns and IPUs. Also add turn boundaries to the "silence" tiers
+
+files <- list.files(folder, "-all\\.TextGrid$")
+filesWAV <- list.files(folder, "\\.wav")
+
+intervals <- data.frame(matrix(nrow=0, ncol=6))
+names(intervals) <- c("file", "speaker", "count", "label", "onset", "offset")
+
+for(f in files){
+  tg <- tg.read(paste0(folder, f), encoding = detectEncoding(paste0(folder, f)))
+  
+  for(tierSpeaker in c("speakerA", "speakerB")){
+    intervalCount <- 0
+    for(i in 1:tg.getNumberOfIntervals(tg, tierSpeaker)){
+      intervalCount <- intervalCount + 1
+      intervals[nrow(intervals)+1,] <- c(gsub(".TextGrid", "", f),
+                                         tierSpeaker,
+                                         intervalCount,
+                                         tg.getLabel(tg, tierSpeaker, i),
+                                         tg.getIntervalStartTime(tg, tierSpeaker, i),
+                                         tg.getIntervalEndTime(tg, tierSpeaker, i))
+    }
+  }
+}
+
+table(intervals$label) # check if there's anything that isn't "s" or ""
+
+int <- intervals %>% 
+  filter(label == "s") %>% 
+  select(-label) %>% 
+  group_by(file, speaker) %>% 
+  mutate(count = 1:n()) %>% 
+  ungroup()
+
+ov <- data.frame(matrix(nrow=0, ncol=8))
+names(ov) <- c("file", "speaker1", "count1", "speaker2", "count2", "onsetOV", "offsetOV", "typeOverlap")
+
+# types of overlap:
+# type 1: one's turn is contained within the other's turn
+# type 2: one's turn (turn 2) starts before the other's turn (turn 1) ends and continues on after turn 1 ends
+
+for(f in unique(int$file)){
+  dat <- int %>% 
+    filter(file == f)
+  
+  for(a in 1:nrow(dat)){
+    for(b in 1:nrow(dat)){
+      if(dat$speaker[a] != dat$speaker[b]){
+        if(as.numeric(dat$onset[b]) > as.numeric(dat$onset[a])){
+          if(as.numeric(dat$offset[b]) < as.numeric(dat$offset[a])){
+            ov[nrow(ov)+1,] <- c(f,
+                                 dat$speaker[a], # speaker that contains the other's turn
+                                 dat$count[a],
+                                 dat$speaker[b], # speaker whose turn is contained within the other's turn
+                                 dat$count[b],
+                                 dat$onset[b],
+                                 dat$offset[b],
+                                 "type1")
+          }
+        }
+        if(as.numeric(dat$onset[b]) > as.numeric(dat$onset[a])){
+          if(as.numeric(dat$onset[b]) < as.numeric(dat$offset[a])){
+            if(as.numeric(dat$offset[b]) > as.numeric(dat$offset[a])){
+              ov[nrow(ov)+1,] <- c(f,
+                                   dat$speaker[a], # speaker that contains the other's turn
+                                   dat$count[a],
+                                   dat$speaker[b], # speaker whose turn is contained within the other's turn
+                                   dat$count[b],
+                                   dat$onset[b],
+                                   dat$offset[a],
+                                   "type2")
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+## Do the following for all files, even if there is no overlap between speakers in a given file, so that all files get the same number of tiers and name.
+
+for(f in files){
+  tg0 <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  tg <- tg.insertNewIntervalTier(tg0, newInd = Inf, "overlap", tMin = tg.getStartTime(tg0), tMax = tg.getEndTime(tg0))
+  dat <- ov %>% 
+    filter(file == gsub(".TextGrid", "", f))
+  
+  if(nrow(dat) > 0){
+    for(i in 1:nrow(dat)){
+      tg <- tg.insertInterval(tg, "overlap", tStart = as.numeric(dat$onsetOV[i]), tEnd = as.numeric(dat$offsetOV[i]), label="overlap")
+    } 
+  }
+  
+  file <- gsub(".TextGrid", "-Overlap.TextGrid", f)
+  tg.write(tg, paste0(folder, file))
+}
+
+###########
+
+# In the original `speaker` tiers, transform any overlap period into an "overlap" interval
+
+files <- list.files(folder, "Overlap.TextGrid")
+
+for(f in files){
+  tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  
+  for(i in 1:tg.getNumberOfIntervals(tg, "overlap")){
+    if(tg.getLabel(tg, "overlap", i) == "overlap"){
+      leftBound <- as.numeric(tg.getIntervalStartTime(tg, "overlap", i))
+      rightBound <- as.numeric(tg.getIntervalEndTime(tg, "overlap", i))
+      for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+        label <- ifelse(grepl("silence", speakerTier), "sounding", "s")
+        # following 4 if statements: to make sure the "overlap" boundary isn't the same as the boundary that already exists in the speakerTier
+        if(leftBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+          if(leftBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+            tg <- tg.insertBoundary(tg, speakerTier, time=leftBound, label=label)
+          }
+        }
+        if(rightBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+          if(rightBound != tg.getIntervalEndTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
+            tg <- tg.insertBoundary(tg, speakerTier, time=rightBound, label=label)
+          }
+        }
+      }
+    }
+  }
+  
+  for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+    for(s in 1:tg.getNumberOfIntervals(tg, speakerTier)){
+      for(o in 1:tg.getNumberOfIntervals(tg, "overlap")){
+        if(tg.getLabel(tg, "overlap", o) == "overlap"){
+          if(tg.getIntervalStartTime(tg, speakerTier, s) == tg.getIntervalStartTime(tg, "overlap", o)){
+            if(tg.getIntervalEndTime(tg, speakerTier, s) == tg.getIntervalEndTime(tg, "overlap", o)){
+              tg <- tg.setLabel(tg, speakerTier, s, "overlap")
+            }
+          }
+        }
+      }
+    }
+  }
+  file <- gsub("Overlap", "OverlapSp", f)
+  tg.write(tg, paste0(folder, file))
+}
+
+###########
+
+## In the silence tiers, whenever a "sounding" intervals starts or ends outside of the borders of an "s" speaker tier interval, create a border in the "sounding" interval at the same place of the turn border
+
+files <- list.files(folder, "OverlapSp.TextGrid$")
+
+intervals <- data.frame(matrix(nrow=0, ncol=6))
+names(intervals) <- c("file", "tier", "count", "label", "onset", "offset")
+
+for(f in files){
+  tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  
+  for(tier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+    intervalCount <- 0
+    for(i in 1:tg.getNumberOfIntervals(tg, tier)){
+      intervalCount <- intervalCount + 1
+      intervals[nrow(intervals)+1,] <- c(gsub(".TextGrid", "", f),
+                                         tier,
+                                         intervalCount,
+                                         tg.getLabel(tg, tier, i),
+                                         tg.getIntervalStartTime(tg, tier, i),
+                                         tg.getIntervalEndTime(tg, tier, i))
+    }
+  }
+}
+
+int <- intervals %>% 
+  filter(grepl("\\bs\\b|sounding", label)) %>%  ## \\b marks the beginning and end of the string you want to find. (if I only wrote "s", it would also return the labels "silent")
+  mutate(speaker = substr(tier, nchar(tier), nchar(tier)))
+
+ov <- data.frame(matrix(nrow=0, ncol=9))
+names(ov) <- c("file", "speaker", "countSpeaker", "countSilence", "onsetSounding", "offsetSounding", "onsetTurn", "offsetTurn", "type")
+
+# type1: "sounding" starts before start of turn and ends before the turn ends
+# type2: "sounding" starts after start of turn and ends after the turn ends
+# type3: "sounding" starts before start of turn and ends after the turn ends
+
+for(f in unique(int$file)){
+  dat <- int %>% 
+    filter(file == f)
+  
+  for(a in 1:nrow(dat %>% filter(grepl("speaker", tier)))){
+    for(b in 1:nrow(dat %>% filter(grepl("silence", tier)))){
+      if(dat$speaker[a] == dat$speaker[b]){
+        if(as.numeric(dat$onset[b]) < as.numeric(dat$onset[a])){
+          if(as.numeric(dat$offset[b]) > as.numeric(dat$onset[a])){
+            if(as.numeric(dat$offset[b]) <= as.numeric(dat$offset[a])){
+              ov[nrow(ov)+1,] <- c(f,
+                                   dat$speaker[a],
+                                   dat$count[a],
+                                   dat$count[b],
+                                   dat$onset[b],
+                                   dat$offset[b],
+                                   dat$onset[a],
+                                   dat$offset[a],
+                                   "type1")
+            }
+          }
+        }
+        if(as.numeric(dat$onset[b]) >= as.numeric(dat$onset[a])){
+          if(as.numeric(dat$onset[b]) < as.numeric(dat$offset[a])){
+            if(as.numeric(dat$offset[b]) > as.numeric(dat$offset[a])){
+              ov[nrow(ov)+1,] <- c(f,
+                                   dat$speaker[a],
+                                   dat$count[a],
+                                   dat$count[b],
+                                   dat$onset[b],
+                                   dat$offset[b],
+                                   dat$onset[a],
+                                   dat$offset[a],
+                                   "type2")
+            }
+          }
+        }
+        if(as.numeric(dat$onset[b]) < as.numeric(dat$onset[a])){
+          if(as.numeric(dat$offset[b]) > as.numeric(dat$offset[a])){
+            ov[nrow(ov)+1,] <- c(f,
+                                 dat$speaker[a],
+                                 dat$count[a],
+                                 dat$count[b],
+                                 dat$onset[b],
+                                 dat$offset[b],
+                                 dat$onset[a],
+                                 dat$offset[a],
+                                 "type3")
+          }
+        }
+      }
+    }
+  }
+}
+
+for(f in files){
+  tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  
+  for(tier in c("silenceA", "silenceB")){
+    sp <- gsub("silence", "", tier)
+    dat <- ov %>%
+      filter(file == gsub(".TextGrid", "", f),
+             speaker == sp)
+    for(i in 1:nrow(dat)){
+      if(dat$type[i] == "type1"){
+        tg <- tg.insertBoundary(tg, tier, as.numeric(dat$onsetTurn[i]), label="sounding")
+      } else if(dat$type[i] == "type2"){
+        tg <- tg.insertBoundary(tg, tier, as.numeric(dat$offsetTurn[i]), label="sounding")
+      } else if(dat$type[i] == "type3"){
+        tg <- tg.insertBoundary(tg, tier, as.numeric(dat$onsetTurn[i]), label="sounding")
+        tg <- tg.insertBoundary(tg, tier, as.numeric(dat$offsetTurn[i]), label="sounding")
+      }
+    }
+  }
+  
+  file <- gsub("OverlapSp", "f0", f)
+  tg.write(tg, paste0(folder, file))
+}
+
+# - Create one TextGrid per speaker (A and B) — each TextGrid only contains the silenceA or silenceB tier, depending on the speaker. They are named exactly like the participant’s WAV file + _VUV. Do this using
+
+tg <- list.files(folder, "f0\\.TextGrid$")
+w <- list.files(folder, "wav")
+wA <- w[grepl("-A", w)]
+wB <- w[grepl("-B", w)]
+
+files0 <- cbind(wA, wB)
+files <- data.frame(cbind(files0, tg)) %>%  
+  mutate(worked1 = ifelse(substr(wA, 1, 6) == substr(wB, 1, 6), "worked!", "NO!!!"),
+         worked2 = ifelse(substr(wA, 1, 6) == substr(tg, 1, 6), "worked!", "NO!!!"))
+table(files$worked1)
+table(files$worked2)
+
+for(i in 1:nrow(files)){
+  tgA <- tg.read(paste0(folder, files$tg[i]), encoding=detectEncoding(paste0(folder, files$tg[i])))
+  for(tier in c("speakerA", "speakerB", "silenceB", "overlap")){
+    tgA <- tg.removeTier(tgA, tier)
+  }
+  fileA <- gsub(".wav", "_VUV.TextGrid", files$wA[i])
+  tg.write(tgA, paste0(folder, fileA))
+  
+  tgB <-  tg.read(paste0(folder, files$tg[i]), encoding=detectEncoding(paste0(folder, files$tg[i])))
+  for(tier in c("speakerA", "speakerB", "silenceA", "overlap")){
+    tgB <- tg.removeTier(tgB, tier)
+  }
+  fileB <- gsub(".wav", "_VUV.TextGrid", files$wB[i])
+  tg.write(tgB, paste0(folder, fileB))
+}
+
+# - Rename “-f0” TextGrids into “XXX-YY” (e.g. HAG-D1, i.e., the simplest form)
+
+files <- list.files(folder, "-f0.TextGrid")
+
+for(f in files){
+  newName <- paste0(substr(f, 1, 6), ".TextGrid")
+  file.rename(from = paste0(folder, f),
+              to = paste0(folder, newName))
+}
+```
+
+Use the Praat script `toParamAc.praat` to extract f0 of the “sounding” intervals
+
+Go on `Preprocessing.R` and create the formatted dataset
+
+
