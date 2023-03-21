@@ -5,8 +5,8 @@ library(tuneR)
 library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/"
-folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/compare/"
-folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/compare/"
+folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
+folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 `%!in%` <- Negate(`%in%`)
 
 m <- read.csv(paste0(folder, "metadata.csv"))
@@ -23,9 +23,10 @@ f0 <- data.frame(matrix(nrow=0, ncol=11))
 names(f0) <- c("file", "speaker", "turn", "IPU", "f0mean", "f0med", "f0sd", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset")
 
 for(i in 1:nrow(files)){
-  speaker <- ifelse(grepl("-A", files$TXT[i]), "A", "B")
-  turnTier <- paste0("speaker", speaker)
-  silenceTier <- paste0("silence", speaker)
+  speaker <- paste0(substr(files$TXT[i], 1, 4), substr(files$TXT[i], 8, 8))
+  sp <- ifelse(grepl("-A", files$TXT[i]), "A", "B")
+  turnTier <- paste0("speaker", sp)
+  silenceTier <- paste0("silence", sp)
   turnCount <- 0
   
   txt <- read.table(paste0(folderSpeech, files$TXT[i]), header = TRUE, na.strings = "--undefined--")
@@ -87,40 +88,122 @@ for(i in 1:nrow(files)){
 
 f0save <- f0
 
-table(paste0(f0$file, f0$speaker))
-
 dat <- f0 %>% 
-  mutate_at(c("f0mean", "f0med", "turn"), as.numeric) %>%
-  mutate(file = ifelse(grepl("D1|D2", file),
-                       paste0(file, "-", "BAD"), paste0(file, "-", "GOOD")),
-         qual = ifelse(grepl("D1|D2", file), "bad", "good"),
+  mutate_at(c("f0mean", "f0med", "f0sd", "turn", "turnOnset"), as.numeric) %>%
+  mutate(qual = ifelse(grepl("D1|D2", file), "bad", "good"),
          task = substr(file, 5, 6),
-         prevf0 = NA) %>% 
+         dyad = substr(file, 1, 3),
+         f0sd = ifelse(f0sd == "NaN", NA, f0sd),
+         firstSp = NA,
+         prevf0mean = NA,
+         prevf0med = NA,
+         prevf0sd = NA) %>% 
   mutate_at(c("file", "speaker", "IPU"), as.factor) %>% 
-  group_by(file, speaker) %>%
-  mutate(index = 1:n()) %>% 
+  group_by(file, speaker, turn) %>%
+  mutate(IPU = 1:n()) %>% 
   ungroup()
 
-ggplot(dat, aes(index, f0mean))+
-  geom_boxplot(aes(color=speaker))+
-  facet_wrap(~file, scales="free")
+# determine who is the first speaker in each file
+for(f in unique(dat$file)){
+  dat$firstSp[dat$file==f] <- unique(as.character(dat$speaker[dat$file==f & dat$turnOnset == min(dat$turnOnset[dat$file==f])]))
+}
 
-ggplot(dat, aes(speaker, f0mean))+
-  geom_boxplot(aes(color=qual))
-
-summary(lm(f0mean ~ qual , dat %>% filter(speaker=="A")))
+dat <- dat %>% 
+  group_by(file) %>% 
+  mutate(prevTurn = ifelse(speaker == firstSp, turn-1, turn)) %>%
+  mutate(prevTurn = ifelse(speaker == firstSp & turn == 1, NA, prevTurn)) %>%
+  ungroup()
 
 for(i in 1:nrow(dat)){
-  prevf0 <- dat$f0mean[dat$file == dat$file[i] &
+  prevf0mean <- dat$f0mean[dat$file == dat$file[i] &
+                             dat$speaker != dat$speaker[i] &
+                             dat$turn == dat$prevTurn[i] &
+                             dat$IPU == dat$IPU[i]]
+  prevf0med <- dat$f0med[dat$file == dat$file[i] &
+                           dat$speaker != dat$speaker[i] &
+                           dat$turn == dat$prevTurn[i] &
+                           dat$IPU == dat$IPU[i]]
+  prevf0sd <- dat$f0sd[dat$file == dat$file[i] &
                          dat$speaker != dat$speaker[i] &
                          dat$turn == dat$prevTurn[i] &
                          dat$IPU == dat$IPU[i]]
-  if(!purrr::is_empty(prevf0)){
-    if(!any(is.na(prevf0))){
-      dat$prevf0[i] <- prevf0
+  if(!purrr::is_empty(prevf0mean)){
+    if(!any(is.na(prevf0mean))){
+      dat$prevf0mean[i] <- prevf0mean
+    }
+  }
+  if(!purrr::is_empty(prevf0med)){
+    if(!any(is.na(prevf0med))){
+      dat$prevf0med[i] <- prevf0med
+    }
+  }
+  if(!purrr::is_empty(prevf0sd)){
+    if(!any(is.na(prevf0sd))){
+      dat$prevf0sd[i] <- prevf0sd
     }
   }
 }
+
+
+dat <- dat %>% 
+  mutate(prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE),
+         prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE),
+         prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE))
+
+dat0 <- data.frame(matrix(nrow=0, ncol=5))
+names(dat0) <- c("speaker", "task", "turn", "IPU", "overallTurn")
+
+for(s in unique(dat$speaker)){
+  l1 <- max(dat$turn[dat$speaker==s & dat$task=="L1"])
+  l2 <- max(dat$turn[dat$speaker==s & dat$task=="L2"] + l1)
+  l3 <- max(dat$turn[dat$speaker==s & dat$task=="L3"] + l2)
+  d1 <- max(dat$turn[dat$speaker==s & dat$task=="D1"] + l3)
+  current <- dat %>%
+    filter(speaker==s) %>% 
+    select(speaker, task, turn, IPU) %>% 
+    mutate(overallTurn = case_when(
+      task=="L1" ~ turn,
+      task=="L2" ~ turn + l1,
+      task=="L3" ~ turn + l2,
+      task=="D1" ~ turn + l3,
+      task=="D2" ~ turn + d1
+    ))
+  dat0 <- rbind(dat0, current)
+}
+
+dat <- merge(dat, dat0, by=c("speaker", "task", "turn", "IPU"))
+
+############## f0 extraction complete.
+
+
+
+
+
+
+
+
+ggplot(dat, aes(overallTurn, f0sd))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+summary(lmer(f0med ~ prevf0medC : overallTurn + (1|speaker), dat))
+
+
+# ggplot(dat, aes(index, f0mean))+
+#   geom_boxplot(aes(color=speaker))+
+#   facet_wrap(~file, scales="free")
+# 
+# ggplot(dat, aes(speaker, f0mean))+
+#   geom_boxplot(aes(color=qual))
+# 
+# summary(lm(f0mean ~ task, dat %>% filter(qual=="bad", dyad=="HAG", speaker=="A")))
+
+
+
+
+
+
+
 
 # for(f in files){
 #   if(grepl("AML|FWR", f)){cat <- "Bad"}else{cat <- "Good"}
@@ -131,7 +214,6 @@ for(i in 1:nrow(dat)){
 #     ggtitle(cat)
 #   readline("Press Enter")
 # }
-
 
 
 
