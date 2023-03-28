@@ -4,6 +4,7 @@
 library(rPraat)
 library(tidyverse)
 
+# folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/All-Overlap/"
 folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids-manualAnnotationOnly/"
 
 # Rename tiers depending on their name
@@ -70,45 +71,60 @@ table(lab$label)
 lab %>% 
   filter(label != "s" & label!="")
 
+for(f in TGv){
+  tg <- tg.read(paste0(folderTG, f), encoding=detectEncoding(paste0(folderTG, f)))
+  
+  for(tier in c("speakerA", "speakerB")){
+    for(i in 1:tg.getNumberOfIntervals(tg, tier)){
+      if(grepl("s", tg.getLabel(tg, tier, i))){
+        if(tg.getLabel(tg, tier, i) != "s"){
+          tg <- tg.setLabel(tg, tier, i, "s")
+        }
+      }
+    }
+  }
+  tg.write(tg, paste0(folderTG, f))
+}
+
 # See if gaps between turns (manually annotated) aren't shorter than 150ms
 
-gaps <- data.frame(matrix(nrow=0, ncol=5))
-names(gaps) <- c("file", "tier", "intervalNo", "onset", "offset")
+# gaps <- data.frame(matrix(nrow=0, ncol=6))
+# names(gaps) <- c("file", "tier", "intervalNo", "onset", "offset", "duration")
 
 for(f in TGv){
   tg <- tg.read(paste0(folderTG, f), encoding=detectEncoding(paste0(folderTG, f)))
   
   for(tier in c("speakerA", "speakerB")){
     for(i in 2:(tg.getNumberOfIntervals(tg, tier)-1)){
+      if(i > (tg.getNumberOfIntervals(tg, tier)-1)){ # adding this because the number of intervals changes during the loop (as boundaries are removed)
+        next
+      }
       if(tg.getLabel(tg, tier, i) == ""){
         if(tg.getLabel(tg, tier, i-1) == "s"){
           if(tg.getLabel(tg, tier, i+1) == "s"){
-           gaps[nrow(gaps)+1,] <- c(f, tier, i, tg.getIntervalStartTime(tg, tier, i), tg.getIntervalEndTime(tg, tier, i)) 
+            if(as.numeric(tg.getIntervalDuration(tg, tier, i)) < 0.15){
+              # tg <- tg.removeIntervalBothBoundaries(tg, tier, i)
+              gaps[nrow(gaps)+1,] <- c(f, tier, i, tg.getIntervalStartTime(tg, tier, i), tg.getIntervalEndTime(tg, tier, i), tg.getIntervalDuration(tg, tier, i))
+            }
           }
         }
       }
     }
   }
-}
-
-gaps <- gaps %>% 
-  mutate_at(c("onset", "offset"), as.numeric) %>% 
-  mutate(dur = offset - onset)
-
-short <- gaps %>% 
-  filter(dur <= 0.15)
-
-for(i in 1:nrow(short)){
-  tg <- tg.read(paste0(folderTG, short$file[i]), encoding=detectEncoding(paste0(folderTG, short$file[i])))
-  tg <- tg.removeIntervalBothBoundaries(tg, short$tier[i], as.numeric(short$intervalNo[i]))
   
-  for(l in 1:tg.getNumberOfIntervals(tg, short$tier[i])){
-    if(tg.getLabel(tg, short$tier[i], l) == "ss"){
-      tg <- tg.setLabel(tg, short$tier[i], l, "s")
+  for(tier in c("speakerA", "speakerB")){
+    for(i in 1:(tg.getNumberOfIntervals(tg, tier))){
+      if(tg.getLabel(tg, tier, i) == "ss"){
+        tg <- tg.setLabel(tg, tier, i, "s")
+      }
     }
   }
-tg.write(tg, paste0(folderTG, short$file[i]))
+  
+  # tg.write(tg, paste0(folderTG, f))
 }
+
+# short <- gaps %>% 
+#   filter(duration <= 0.15)
 
 # Check that A’s and B’s turns are always after each other (no turnB then turnB again before a turnA)
 # (do this on files where overlaps were already annotated)
@@ -125,13 +141,65 @@ for(f in TGv){
     }
   }
 }
-#do something like:
-sorted <- turns %>% 
-  filter(label == "s") %>% 
-  group_by(file) %>% 
-  arrange(onset, offset, .by_group=TRUE)
-#and then find the subsequent turns that belong to the same speaker
 
+sorted <- turns %>% 
+  filter(label == "s") %>%
+  mutate_at(c("intervalNo", "onset", "offset"), as.numeric) %>% 
+  group_by(file) %>% 
+  arrange(onset, offset, .by_group=TRUE) %>% 
+  ungroup() %>% 
+  mutate(rep = NA)
+
+for(f in unique(sorted$file)){
+  tg <- tg.read(paste0(folderTG, f), encoding=detectEncoding(paste0(folderTG, f)))
+  s <- sorted %>%
+    filter(file == f)
+  
+  for(i in 3:nrow(s)){
+    if(s$tier[i] == s$tier[i-1] | s$tier[i] == s$tier[i-2]){
+      currentTier <- s$tier[i]
+      currentOnset <- as.numeric(tg.getIntervalStartTime(tg, s$tier[i], s$intervalNo[i]))
+      offset1 <- as.numeric(tg.getIntervalEndTime(tg, s$tier[i-1], s$intervalNo[i-1]))
+      offset2 <- as.numeric(tg.getIntervalEndTime(tg, s$tier[i-2], s$intervalNo[i-2]))
+      if(s$tier[i-1] == currentTier){sameSpOffset <- offset1} else{otherSpOffset <- offset1}
+      if(s$tier[i-2] == currentTier){sameSpOffset <- offset2} else{otherSpOffset <- offset2}
+      
+      if((currentOnset - sameSpOffset) < (currentOnset - otherSpOffset)){
+        s$rep[i] <- "repeatedTurn"
+      } else{next}
+    }
+  }
+  
+  sorted <- full_join(sorted, s, by=c("file", "tier", "intervalNo", "label", "onset", "offset", "rep"))
+}
+
+sorted <- sorted %>% 
+  filter(rep == "repeatedTurn")
+
+# remove gaps between turn intervals that are consecutively of the same speaker
+
+for(f in unique(sorted$file)){
+  tg <- tg.read(paste0(folderTG, f), encoding=detectEncoding(paste0(folderTG, f)))
+  s <- sorted %>% 
+    filter(file == f)
+  
+  for(r in 1:nrow(s)){
+    for(i in 1:tg.getNumberOfIntervals(tg, s$tier[r])){
+      if(i > (tg.getNumberOfIntervals(tg, s$tier[r]))){
+        next
+      }
+      if(tg.getIntervalStartTime(tg, s$tier[r], i) == s$onset[r]){
+        if(tg.getIntervalEndTime(tg, s$tier[r], i) == s$offset[r]){
+          tg <- tg.removeIntervalBothBoundaries(tg, s$tier[r], i-1)
+        }
+      }
+    }
+  }
+  
+  tg.write(tg, paste0(folderTG, f))
+}
+
+###############################################################
 
 # Copy each TextGrid twice into the same folder, each time taking the name of the corresponding wav file + "_VUV" (there are 2 wav files per TextGrid)
 # In the VUV textgrids, leave only the "silenceX" tier
