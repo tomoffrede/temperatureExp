@@ -4,10 +4,9 @@
 
 library(rPraat)
 library(tidyverse)
+library(tuneR)
 
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/compare/"
-
-# - Run GetSpeakerRegister.praat script on the wav files
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/HUJ/compare/"
 
 # - Check that tiers are speakerA and speakerB (not speaker1 and speaker2)
 
@@ -23,6 +22,8 @@ for(t in TGv){
   }
   tg.write(tg, paste0(folder, t))
 }
+
+# - Run GetSpeakerRegister.praat script on the wav files
 
 # - Annotate voice activity on Praat -- use register obtained above and minimum silence threshold of 0.15 seconds
 

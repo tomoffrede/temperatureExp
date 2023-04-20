@@ -8,37 +8,18 @@
 # 1: left
 # 2: right
 
-# Bit of code taken from https://vbaliga.github.io/verify-that-r-packages-are-installed-and-loaded/
-# to install and load all necessary packages
-
-## First specify the packages of interest
-packages = c("tidyverse",
-             "readr")
-
-## Now load or install&load all
-package.check <- lapply(
-  packages,
-  FUN = function(x) {
-    if (!require(x, character.only = TRUE)) {
-      install.packages(x, dependencies = TRUE)
-      library(x, character.only = TRUE)
-    }
-  }
-)
-remove(packages)
-remove(package.check)
-# end of code copied
-
-# Start of my own code
+library(tidyverse)
+library(readr)
 
 `%!in%` <- Negate(`%in%`)
 
 # specify the folder where all the files with the temperature data are
 # make sure that the name of the folder ends with "/"
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/"
-folderTXT <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempTXT/"
+folderTXT <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/"
 
-files <- list.files(folderTXT, "txt")
+# files <- list.files(folderTXT, "\\.txt")
+files <- list.files(folderTXT, "example")
 files <- files[files!="KPB-11.txt"]
 
 ### see if all the files are named in a good way (that can be parsed easily)
@@ -48,14 +29,15 @@ files <- files[files!="KPB-11.txt"]
 # table(nchar(f))
 # table(substr(f, 1, 3)) # two of them have 24 instead of 25 frames
 # table(substr(f, 4, 4))
-# table(substr(f, 5, 6)) # there are fewer of frames 1, 2, 25, 3, 4, 5, 6, 7, 8, 9 ??????
+# table(substr(f, 5, 6)) # there are fewer of frames 1, 2, 3, 4, 5, 6, 7, 8, 9, 25 ??????
 
 ###
 
 dat <- data.frame(matrix(nrow=0, ncol=5))
 names(dat) <- c("speaker", "frame", "ROI", "temperature", "Tz")
 
-# wrong <- c()
+wrong <- data.frame(matrix(ncol=2, nrow=0))
+names(wrong) <- c("file", "column")
 
 # files <- files[grepl("SUK", files)]
 # f <- files[[1]]
@@ -74,13 +56,12 @@ for(f in files){
   names(tempA) <- c("speaker", "frame", "ROI", "temperature", "Tz") # Tz is the temperature in z scores
   tempB <- data.frame(matrix(nrow=0, ncol=5))
   names(tempB) <- c("speaker", "frame", "ROI", "temperature", "Tz") # Tz is the temperature in z scores
-  
+  w <- NA
   for(i in 1:ncol(a)){
     if(substr(names(a[i]), nchar(names(a[i])), nchar(names(a[i]))) %!in% c("A", "B") || substr(names(a[i]), 1, 1) %!in% c("F", "E", "N", "C", "M")){ # some columns were named wrong and contain only numbers. Here I try to correct them.
-      wrong <- c(wrong, names(a[i]))
-      print(paste("Something wrong with file", f, "column", names(a[i])))
+      wrong[nrow(wrong)+1,] <- c(f, names(a[i]))
     }
-    
+
     frame <- substr(f, 5, 6)
     sp <- paste0(substr(f, 1, 4), substr(names(a[i]), nchar(names(a[i])), nchar(names(a[i]))))
     
@@ -102,7 +83,7 @@ for(f in files){
       temp[[t]]$temperature <- as.numeric(temp[[t]]$temperature)
       temp[[t]] <- temp[[t]] %>%
         mutate(Tz = (temperature - mean(temperature)) / sd(temperature)) %>%
-        filter(abs(Tz) < 2)
+        filter(abs(Tz) < 2.5)
       sp <- unique(temp[[t]]$speaker)
       temp[[t]][nrow(temp[[t]])+1,] <- c(sp, frame, "Face", mean(temp[[t]]$temperature, na.rm=TRUE), NA)
     }

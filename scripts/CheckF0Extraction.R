@@ -18,9 +18,9 @@ p <- 270000:272000
 
 sound::play(input)
 
-input <- tuneR::readWave(paste0(folder, f))
+input <- tuneR::readWave(paste0(folder, f))NaN
 # plot(input@left, type="l")
-input@left[abs(diff(input@left))>100] <- NaN
+input@left[abs(diff(input@left))>100] <- 
 # plot(input@left, type="l")
 input@left[abs(input@left)<70] <- NaN
 # plot(input@left, type="l")

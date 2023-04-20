@@ -20,11 +20,15 @@ library(tuneR)
 # setwd('C:/Users/fuchs/OneDrive - Leibniz-ZAS/Dokumente/Bradley/vocalisationtrialsaudio/')
 
 #basefolder <- ("C:/Users/fuchs/OneDrive - Leibniz-ZAS/Dokumente/Bradley/")  #what is the current folder?
-basefolder <- ("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/")
+basefolder <- ("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/HBR/refilter/")
 filefolder <- basefolder
 alfiles <- list.files(filefolder, pattern = "*.wav")
-# statisfolder <- paste0(basefolder, "filtered/")
-statisfolder <- ("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWavFiltered/")
+# statisfolder <- paste0(basefolder, "refilter/")
+statisfolder <- basefolder
+
+# baseline <- data.frame(file = alfiles,
+                       # onset = c(6.432797*48000, 6.432797*48000, 2.30929*48000, 2.30929*48000, 0.845496*48000, 0.845496*48000, 0.301285*48000, 0.301285*48000, 4.568668*48000, 4.568668*48000, 30.480004*48000, 30.480004*48000, 28.821029*48000, 28.821029*48000, 3.201848*48000, 3.201848*48000),
+                       # offset = c(6.740999*48000, 6.740999*48000, 3.70188*48000, 3.70188*48000, 1.919031*48000, 1.919031*48000, 1.290056*48000, 1.290056*48000, 4.976755*48000, 4.976755*48000, 31.251496*48000, 31.251496*48000, 29.260805*48000, 29.260805*48000, 3.656124*48000, 3.656124*48000))
 
 #Read a Wave File
 for(ff in alfiles) #loop through all files
@@ -49,23 +53,24 @@ hertz <- seq(1, sr/2, length.out=fftlen/2)
 plot(hertz, mag0[1:(fftlen/2)], type='l', xlab="Frequency (Hz)", ylab="Amplitude")
 
 # grab a section of audio to demonstrate spectral subtraction
-chunk <- train_audio@left[1:2205]
+chunk <- train_audio@left[7.575661*48000:8.693304*48000]
+# chunk <- train_audio@left[baseline$onset[baseline$file==ff]:baseline$offset[baseline$file==ff]]
 # phonTools::spectrogram(chunk, fs=sr, color=F, dynamicrange=65, maxfreq=sr/2)
 
 fft1 <- fft(chunk)
 mag1 <- Mod(fft1)
-plot(hertz, mag1[1:(fftlen/2)], type='l')
+# plot(hertz, mag1[1:(fftlen/2)], type='l')
 
 # compare noisy audio and baseline noise
-plot(hertz, mag1[1:(fftlen/2)], type='l', col='red')
+# plot(hertz, mag1[1:(fftlen/2)], type='l', col='red')
 lines(hertz, mag0[1:(fftlen/2)], col='blue')
 
 # spectral subtraction
 mag2 <- mag1 - mag0
-plot(hertz, mag2[1:(fftlen/2)], type='l')
+# plot(hertz, mag2[1:(fftlen/2)], type='l')
 abline(a=0, b=0, col='red')
 mag2[mag2<0] <- 0
-plot(hertz, mag2[1:(fftlen/2)], type='l')
+# plot(hertz, mag2[1:(fftlen/2)], type='l')
 
 # inverse FFT
 phs1  <- Arg(fft1)
@@ -130,6 +135,6 @@ cleaned[is.na(cleaned)] <- 0
 Wave(cleaned, samp.rate=sr, bit=bit)->nn
 nn <- normalize(nn, unit=as.character(bit))
 #writeWave(new, ff, extensible = TRUE)
-writeWave(nn,paste0(statisfolder, ff))
+writeWave(nn,paste0(statisfolder, gsub(".wav", "-filtered.wav", ff)))
 }
 

@@ -8,6 +8,7 @@ library(tuneR)
 library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+folderData <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/temperatureExp/data/"
 folderAll <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllForPreprocessing/"
 folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
@@ -304,6 +305,8 @@ m <- merge(m, bfi, by="speaker") %>%
          similarity = rcit8, # Quanto ti senti simile al partecipante con cui stai lavorando a questo studio?
          likeability = rcit9, # Quanto ti piace il partecipante con cui stai lavorando a questo studio?
          becomeFriends = rcit10) # In futuro, in che misura ritieni di poter essere amico del partecipante con cui stai lavorando a questo studio?
+
+save(m, file=paste0(folderData, "metadata-clean.RData"))
 
 dat0 <- dat # in case we want to check it before it gets merged
 

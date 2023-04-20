@@ -6,10 +6,13 @@
 library(tidyverse)
 library(rPraat)
 
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/HAG/compare/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids-manualAnnotationOnly/"
+folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/"
+folder3 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/All-Overlap/"
 
 files <- list.files(folder, "\\.TextGrid$")
 files <- files[!grepl("OG|sil", files)]
+filesWAV <- list.files(folder2, "\\.wav")
 
 intervals <- data.frame(matrix(nrow=0, ncol=6))
 names(intervals) <- c("file", "speaker", "count", "label", "onset", "offset")
@@ -100,23 +103,24 @@ for(f in files){
   }
   
   file <- gsub(".TextGrid", "-Overlap.TextGrid", f)
-  tg.write(tg, paste0(folder, file))
+  tg.write(tg, paste0(folder3, file))
 }
 
 ###########
 
 # In the original `speaker` tiers, transform any overlap period into an "overlap" interval
 
-files <- list.files(folder, "OverlapSp.TextGrid")
+files <- list.files(folder3, "Overlap.TextGrid")
 
 for(f in files){
-  tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
+  tg <- tg.read(paste0(folder3, f), encoding=detectEncoding(paste0(folder3, f)))
   
   for(i in 1:tg.getNumberOfIntervals(tg, "overlap")){
     if(tg.getLabel(tg, "overlap", i) == "overlap"){
       leftBound <- as.numeric(tg.getIntervalStartTime(tg, "overlap", i))
       rightBound <- as.numeric(tg.getIntervalEndTime(tg, "overlap", i))
-      for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+      for(speakerTier in c("speakerA", "speakerB"#, "silenceA", "silenceB"
+                           )){
         label <- ifelse(grepl("silence", speakerTier), "sounding", "s")
         # following 4 if statements: to make sure the "overlap" boundary isn't the same as the boundary that already exists in the speakerTier
         if(leftBound != tg.getIntervalStartTime(tg, speakerTier, tg.getIntervalIndexAtTime(tg, speakerTier, leftBound))){
@@ -133,7 +137,8 @@ for(f in files){
     }
     }
   
-  for(speakerTier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+  for(speakerTier in c("speakerA", "speakerB"#, "silenceA", "silenceB"
+                       )){
     for(s in 1:tg.getNumberOfIntervals(tg, speakerTier)){
       for(o in 1:tg.getNumberOfIntervals(tg, "overlap")){
         if(tg.getLabel(tg, "overlap", o) == "overlap"){
@@ -147,14 +152,15 @@ for(f in files){
     }
   }
   file <- gsub("Overlap", "OverlapSp", f)
-  tg.write(tg, paste0(folder, file))
+  tg.write(tg, paste0(folder3, file))
 }
 
 ###########
 
 # In the silence tiers, whenever a "sounding" intervals starts or ends outside of the borders of an "s" speaker tier interval, create a border in the "sounding" interval at the same place of the turn border
 
-files <- list.files(folder, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
+files <- list.files(folder3, "OverlapSp.TextGrid$")
+# files <- list.files(folder, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
 
 intervals <- data.frame(matrix(nrow=0, ncol=6))
 names(intervals) <- c("file", "tier", "count", "label", "onset", "offset")
@@ -162,7 +168,8 @@ names(intervals) <- c("file", "tier", "count", "label", "onset", "offset")
 for(f in files){
   tg <- tg.read(paste0(folder, f), encoding=detectEncoding(paste0(folder, f)))
   
-  for(tier in c("speakerA", "speakerB", "silenceA", "silenceB")){
+  for(tier in c("speakerA", "speakerB"#, "silenceA", "silenceB"
+                )){
     intervalCount <- 0
     for(i in 1:tg.getNumberOfIntervals(tg, tier)){
       intervalCount <- intervalCount + 1
@@ -265,24 +272,3 @@ for(f in files){
   file <- gsub(".TextGrid", "-f0.TextGrid", f)
   tg.write(tg, paste0(folder, file))
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

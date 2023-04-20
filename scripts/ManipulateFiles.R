@@ -7,12 +7,11 @@ library(tuneR)
 library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
-folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids-manualAnnotationOnly/"
+folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllForPreprocessing/"
 folderAllTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids/"
 folderAllW <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/"
 folderAllWF <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/TestF0Extraction/AllWAV/"
 dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO", "OAL", "OXQ", "QRT", "SGB", "SUK", "TTN", "TTY", "VDE", "ZNV")
-dyads <- dyads[5:19]
 dyads <- c(c("HAG", "ZNV", "AML", "HUJ", "KPB"))
 
 # Copy all files from one folder to another
@@ -46,12 +45,13 @@ for(f in t){
   }
 }
 
-dy# Copy files from their individual folder into a folder with all speakers
+# Copy files from their individual folder into a folder with all speakers
 
 for(d in dyads){
   folderC <- paste0(folder, d, "/")
-  files <- list.files(folderC, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
-  # files <- files[!grepl("Register", files)]
+  # files <- list.files(folderC, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
+  files <- list.files(folderC, "\\.txt$")
+  files <- files[!grepl("Register", files)]
   for(f in files){
     file <- paste0(folderC, f, "/")
     file.copy(file, folder2, overwrite = TRUE)

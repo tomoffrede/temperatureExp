@@ -46,7 +46,7 @@ dat <- dat %>%
   filter(!duplicated(turn)) %>% 
   ungroup()
 
-summary(lmer(turnf0mean ~ prevTurnf0meanC * order * condition + (1|speaker), dat))
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat))
 ```
 
 ## f0 SD

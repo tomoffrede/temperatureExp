@@ -18,7 +18,7 @@ library(tidyverse)
 library(tuneR)
 
 folderGeneral <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/MJG/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/ZNV/"
 dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO", "OAL", "OXQ", "QRT", "SGB", "SUK", "TTN", "TTY", "VDE", "ZNV")
 ```
 
@@ -29,8 +29,8 @@ Annotate voice activity on Praat -- use register obtained above and minimum sile
 Multiple steps:
 
 ```{r}
-# for(d in dyads){
-  # folder <- paste0(folderGeneral, d, "/")
+for(d in dyads){
+folder <- paste0(folderGeneral, d, "/")
   
   # - Check that tiers are speakerA and speakerB (not speaker1 and speaker2)
   # - And check that the turn intervals are annotated as "s" (and no blank spaces or anything else)
@@ -463,7 +463,7 @@ Multiple steps:
                 to = paste0(folder, newName))
   }
   
-# }
+}
 ```
 
 Use the Praat script `toParamAc.praat` to extract f0 of the “sounding” intervals

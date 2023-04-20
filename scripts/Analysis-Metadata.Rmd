@@ -1,0 +1,270 @@
+---
+title: "Analysis - Metadata"
+author: "Tom Offrede"
+date: "2023-04-20"
+output:
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lmerTest)
+
+folderData <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/temperatureExp/data/"
+load(paste0(folderData, "metadata-clean.RData"))
+```
+
+# Descriptives
+
+## Gender
+
+2 male dyads, 17 female dyads, 38 people total
+
+```{r}
+table(m$gender)
+```
+
+## Age
+
+```{r}
+table(m$age)
+summary(m$age)
+sd(m$age)  
+```
+
+## L1
+
+36 whose only L1 is Italian. 1 person whose L1s are Italian and Norwegian. 1 person whose L1 is Romanian.
+
+```{r}
+table(m$L1)
+```
+
+## Previous acquaintance with partner?
+
+One dyad knew each other a little bit from before. Both rated their acquaintance at the same level.
+
+```{r}
+table(m$preAcquaintance)
+```
+
+## How they felt during the first task
+
+* Privacy: all ok
+* Felt at ease: one person didn't
+* Conversation as a good way to get to know someone: 2 said no
+* Is often in conversations like this: 21 yes, 17 no
+* Friends would make questions like these: 18 yes, 20 no
+* Friends think conversation is important to get to know someone: 36 yes, 2 no
+
+```{r}
+table(m$privacy)
+table(m$atEase)
+table(m$convMeet)
+table(m$convHabit)
+table(m$friendsQuestions)
+table(m$convFriends)
+```
+
+# Stats
+
+## Manipulation Check
+
+```{r}
+names(m)
+```
+
+
+### Thermal Comfort
+
+People tended strongly (but p = 0.07) to find the room hotter after the interaction in the Close condition. Before the interaction, there was no condition difference.
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, comfortPre))+
+  geom_boxplot()+
+  ggtitle("Thermal Comfort before Interaction")
+
+ggplot(m, aes(condition, comfortPost))+
+  geom_boxplot()+
+  ggtitle("Thermal Comfort after Interaction")
+```
+
+```{r}
+summary(lm(comfortPre ~ condition, m))
+summary(lm(comfortPost ~ condition, m))
+```
+
+
+### Temperature Guessing
+
+No difference in temperature perception before and after interaction between conditions.
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, tempPre))+
+  geom_boxplot()+
+  ggtitle("Temperature Perception before Interaction")
+
+ggplot(m, aes(condition, tempPost))+
+  geom_boxplot()+
+  ggtitle("Temperature Perception after Interaction")
+```
+
+```{r}
+summary(lm(tempPre ~ condition, m))
+summary(lm(tempPost ~ condition, m))
+```
+
+### Closeness
+
+People in the Close condition felt closer to their partner (p = 0.01).
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, closeness))+
+  geom_boxplot()+
+  ggtitle("Feeling of Closeness")
+```
+
+```{r}
+summary(lm(closeness ~ condition, m))
+```
+
+#### Is people's feeling of closeness reciprocal?
+
+Not according to the regression (p = 0.16), even if the plot suggests that yes. Maybe we'd need more data.
+
+```{r, include=FALSE}
+dat <- m
+dat$otherClose <- NA
+
+for(current in 1:nrow(dat)){
+  for(other in 1:nrow(dat)){
+    if(substr(dat$speaker[current], 1, 3) == substr(dat$speaker[other], 1, 3)){
+      if(dat$speaker[current] != dat$speaker[other]){
+        dat$otherClose[current] <- dat$closeness[other]
+      }
+    }
+  }
+}
+```
+
+
+```{r}
+ggplot(dat, aes(otherClose, closeness))+
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+```{r}
+summary(lm(closeness ~ otherClose, dat))
+```
+
+### Similarity
+
+People in the Close condition didn't feel more similar to their partner (p = 0.13), though the figure indicates a potential small effect.
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, similarity))+
+  geom_boxplot()+
+  ggtitle("Feeling of Similarity")
+```
+
+```{r}
+summary(lm(similarity ~ condition, m))
+```
+
+### Likeability
+
+People in the Close condition liked their partner better (p = 0.015).
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, likeability))+
+  geom_boxplot()+
+  ggtitle("How much one likes one's partner")
+```
+
+```{r}
+summary(lm(likeability ~ condition, m))
+```
+
+### Wish to Become Friends
+
+People in the Close condition didn't want more to be friends with their partner (p = 0.27).
+
+```{r, echo=FALSE}
+ggplot(m, aes(condition, becomeFriends))+
+  geom_boxplot()+
+  ggtitle("How much one wants to be friends with their partner")
+```
+
+```{r}
+summary(lm(becomeFriends ~ condition, m))
+```
+
+## Personality Scores Affected Ratings?
+
+For the analyses below: should we actually fit `BFI * condition`? Does it make more sense? But then again, do we have enough data points for this?
+
+### Extraversion
+
+No effects
+
+```{r}
+summary(lm(closeness ~ extraversion, m))
+summary(lm(similarity ~ extraversion, m))
+summary(lm(likeability ~ extraversion, m))
+summary(lm(becomeFriends ~ extraversion, m))
+```
+
+### Openness
+
+Openness scores were positively related to feeling of closeness (p = 0.02) and how people liked their partner (p = 0.005). The p value of feeling of similarity was 0.09 and for wanting to become friends, 0.06.
+
+```{r}
+summary(lm(closeness ~ openness, m))
+summary(lm(similarity ~ openness, m))
+summary(lm(likeability ~ openness, m))
+summary(lm(becomeFriends ~ openness, m))
+```
+
+### Agreeableness
+
+No effects
+
+```{r}
+summary(lm(closeness ~ agreeableness, m))
+summary(lm(similarity ~ agreeableness, m))
+summary(lm(likeability ~ agreeableness, m))
+summary(lm(becomeFriends ~ agreeableness, m))
+```
+
+### Conscientiousness
+
+No effects
+
+```{r}
+summary(lm(closeness ~ conscientiousness, m))
+summary(lm(similarity ~ conscientiousness, m))
+summary(lm(likeability ~ conscientiousness, m))
+summary(lm(becomeFriends ~ conscientiousness, m))
+```
+
+### Neuroticism
+
+No effects
+
+```{r}
+summary(lm(closeness ~ neuroticism, m))
+summary(lm(similarity ~ neuroticism, m))
+summary(lm(likeability ~ neuroticism, m))
+summary(lm(becomeFriends ~ neuroticism, m))
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+
