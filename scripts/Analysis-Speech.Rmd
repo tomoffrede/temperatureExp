@@ -1,0 +1,131 @@
+---
+title: "Analysis"
+author: "Tom Offrede"
+date: "2023-03-30"
+output:
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lmerTest)
+
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+
+load(paste0(folder, "data.RData"))
+
+names(dat)
+```
+
+**Order** refers to the section of the experiment (in this order: List of questions 1, List 2, List 3, Diapix 1, Diapix 2). (Not everyone did Diapix 2).
+
+**Turn** refers to the participant's turn within a section.
+
+# f0 averaged over each IPU
+
+## f0 mean
+
+Similar results if we look at *order* or at *turn*.
+
+```{r}
+summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat))
+summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat))
+```
+
+### Dividing between the two conditions
+
+It seems that the people in the impersonal condition are driving the divergence. This is true both when looking at *order* and *turn*.
+
+```{r}
+summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="con")))
+
+summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="con")))
+```
+
+
+## f0 SD
+
+Looking at *order*: people diverged on f0 SD over time.
+
+Looking at *turn*: people had higher f0 SD over turns within one conversation, but it was independent of the interlocutor's f0 SD.
+
+```{r}
+summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat))
+summary(lmer(f0sd ~ prevf0sdC * turn + (1|speaker), dat))
+```
+
+### Dividing between the two conditions
+
+Same as with f0 mean: divergence on f0 SD (when looking at *order*), it were the dyads in the impersonal condition that drove the divergence.
+
+```{r}
+summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="con")))
+```
+
+
+# f0 averaged over each turn
+
+## f0 mean
+
+Looking at *order*, people diverged on f0 mean over the tasks.
+
+Looking at *turn*, there was no effect.
+
+```{r}
+dat <- dat %>% 
+  group_by(speaker, task) %>% 
+  filter(!duplicated(turn)) %>% 
+  ungroup()
+
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat))
+summary(lmer(turnf0mean ~ prevTurnf0meanC * turn + (1|speaker), dat))
+```
+
+### Dividing between the two conditions
+
+Again, people in the impersonal condition drove the divergence effect.
+
+```{r}
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="con")))
+```
+
+
+## f0 SD
+
+Looking at *order*, people diverged on f0 SD over the tasks.
+
+Looking at *turn*, people also diverged on f0 SD over turns, but with a small effect size.
+
+```{r}
+summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat))
+```
+
+
+### Dividing between the two conditions
+
+Here, looking at *order*, same pattern as before (impersonal condition driving divergence).
+
+Looking at *turn*, it's the other way around, but with a very small effect size.
+
+```{r}
+summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="con")))
+
+summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="exp")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="con")))
+```
+
+
+

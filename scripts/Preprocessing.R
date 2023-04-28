@@ -263,7 +263,11 @@ m <- m %>%
          tempPost = temppost,
          realTempPre = realtemppre,
          realTempDuring = realtempduring,
-         realTempPost = realtemppost)
+         realTempPost = realtemppost) %>% 
+  mutate(condition = case_when(
+    condition == "exp" ~ "close",
+    condition == "con" ~ "impersonal",
+  ))
 
 f <- read.csv(paste0(folder, "bfi-factors.csv"), sep=";", na.strings = "") %>% 
   filter(!is.na(factor)) %>% 
