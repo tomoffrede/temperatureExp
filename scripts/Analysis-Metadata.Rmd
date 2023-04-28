@@ -222,11 +222,14 @@ summary(lm(becomeFriends ~ extraversion, m))
 
 Openness scores were positively related to feeling of closeness (p = 0.02) and how people liked their partner (p = 0.005). The p value of feeling of similarity was 0.09 and for wanting to become friends, 0.06.
 
+The significant effects here are on the same questionnaire items as the significant ones in the manipulation check (closeness and likeability). So we also make sure that the participants weren't unevenly distributed across the conditions: there was no difference in openness scores between conditions (p > 0.14).
+
 ```{r}
 summary(lm(closeness ~ openness, m))
 summary(lm(similarity ~ openness, m))
 summary(lm(likeability ~ openness, m))
 summary(lm(becomeFriends ~ openness, m))
+summary(lm(openness ~ condition, m))
 ```
 
 ### Agreeableness

@@ -1905,6 +1905,11 @@ do we have enough data points for this?</p>
 0.02) and how people liked their partner (p = 0.005). The p value of
 feeling of similarity was 0.09 and for wanting to become friends,
 0.06.</p>
+<p>The significant effects here are on the same questionnaire items as
+the significant ones in the manipulation check (closeness and
+likeability). So we also make sure that the participants weren’t
+unevenly distributed across the conditions: there was no difference in
+openness scores between conditions (p &gt; 0.14).</p>
 <pre class="r"><code>summary(lm(closeness ~ openness, m))</code></pre>
 <pre><code>## 
 ## Call:
@@ -1981,6 +1986,25 @@ feeling of similarity was 0.09 and for wanting to become friends,
 ## Residual standard error: 1.691 on 36 degrees of freedom
 ## Multiple R-squared:  0.09585,    Adjusted R-squared:  0.07073 
 ## F-statistic: 3.816 on 1 and 36 DF,  p-value: 0.05856</code></pre>
+<pre class="r"><code>summary(lm(openness ~ condition, m))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = openness ~ condition, data = m)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -1.54500 -0.62931  0.00926  0.62167  1.50926 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)    3.3241     0.1908  17.424   &lt;2e-16 ***
+## conditionexp   0.3876     0.2630   1.474    0.149    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.8094 on 36 degrees of freedom
+## Multiple R-squared:  0.05691,    Adjusted R-squared:  0.03071 
+## F-statistic: 2.172 on 1 and 36 DF,  p-value: 0.1492</code></pre>
 </div>
 <div id="agreeableness" class="section level3">
 <h3>Agreeableness</h3>
