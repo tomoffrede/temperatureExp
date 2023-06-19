@@ -15,7 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, include=FALSE}
 library(tidyverse)
-library(lmerTest)
+library(lme4)
+library(broom.mixed)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
 
@@ -24,13 +25,291 @@ load(paste0(folder, "data.RData"))
 names(dat)
 ```
 
+# Important
+
 **Order** refers to the section of the experiment (in this order: List of questions 1, List 2, List 3, Diapix 1, Diapix 2). (Not everyone did Diapix 2).
 
 **Turn** refers to the participant's turn within a section.
 
-# f0 averaged over each IPU
+# Individual dyads, only Diapix
 
-## f0 mean
+## f0 averaged over each turn
+
+```{r, include=FALSE}
+dat <- dat %>% 
+  mutate(f0meanDiff = abs(turnf0mean - prevTurnf0mean),
+         f0medDiff = abs(turnf0med - prevTurnf0med),
+         f0sdDiff = abs(turnf0sd - prevTurnf0sd),
+         f0maxDiff = abs(turnf0max - prevTurnf0max)) %>% 
+  group_by(speaker, task) %>% 
+  filter(!duplicated(turn)) %>% 
+  mutate(stageTurn = turn / max(turn),
+         stage = ifelse(stageTurn <= 0.33, "beginning", ifelse(stageTurn >= 0.66, "ending", NA))) %>% 
+  ungroup() %>% 
+  filter(task == "D1")
+
+eff <- data.frame(matrix(nrow=0, ncol=7))
+names(eff) <- c("dyad", "condition", "type", "feature", "direction", "effect", "pORt")
+```
+
+### Turn-level Sychrony: Correlations
+
+```{r}
+for(d in unique(dat$dyad)){
+  r <- cor.test(dat$turnf0mean[dat$dyad==d], dat$prevTurnf0mean[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0mean, turnf0mean, size=turn))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnSync",
+                           "f0mean",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+  r <- cor.test(dat$turnf0med[dat$dyad==d], dat$prevTurnf0med[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0med, turnf0med, size=turn))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnSync",
+                           "f0med",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+  r <- cor.test(dat$turnf0sd[dat$dyad==d], dat$prevTurnf0sd[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0sd, turnf0sd, size=turn))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnSync",
+                           "f0sd",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+  r <- cor.test(dat$turnf0max[dat$dyad==d], dat$prevTurnf0max[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0max, turnf0max, size=turn))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnSync",
+                           "f0max",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+}
+
+```
+
+### Turn-level Convergence: Correlations
+
+```{r}
+for(d in unique(dat$dyad)){
+  r <- cor.test(dat$f0meanDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0meanDiff))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnConv",
+                           "f0mean",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+   r <- cor.test(dat$f0medDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0medDiff))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnConv",
+                           "f0med",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+  r <- cor.test(dat$f0sdDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0sdDiff))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnConv",
+                           "f0sd",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+  
+   r <- cor.test(dat$f0maxDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0maxDiff))+
+           geom_point()+
+           geom_smooth(method="lm")+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", d, ".png"),
+         dpi = "retina")
+  if(r$p.value < 0.05){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "turnConv",
+                           "f0max",
+                           ifelse(r$estimate < 0, "negative", "positive"),
+                           r$estimate,
+                           r$p.value)
+  }
+}
+
+```
+
+### Global-level convergence
+
+```{r}
+# annotate first 3rd of data set (or first half?) as "beginning" and the last as "ending"
+# do t-test or lmer with f0Diff ~ stage (i.e. beginning vs ending)
+# visualize with boxplots
+
+dat <- dat %>% 
+  filter(!is.na(stage))
+
+for(d in unique(dat$dyad)){
+  c <- tidy(lmer(f0meanDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  ggplot(dat %>% filter(dyad==d), aes(stage, f0meanDiff))+
+           geom_boxplot()+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", d, ".png"),
+         dpi = "retina")
+  if(t > 2){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "globalConv",
+                           "f0mean",
+                           ifelse(est < 0, "negative", "positive"),
+                           est,
+                           t)
+  }
+  
+  c <- tidy(lmer(f0medDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  ggplot(dat %>% filter(dyad==d), aes(stage, f0medDiff))+
+           geom_boxplot()+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", d, ".png"),
+         dpi = "retina")
+  if(t > 2){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "globalConv",
+                           "f0med",
+                           ifelse(est < 0, "negative", "positive"),
+                           est,
+                           t)
+  }
+  
+  c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  ggplot(dat %>% filter(dyad==d), aes(stage, f0maxDiff))+
+           geom_boxplot()+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", d, ".png"),
+         dpi = "retina")
+  if(t > 2){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "globalConv",
+                           "f0max",
+                           ifelse(est < 0, "negative", "positive"),
+                           est,
+                           t)
+  }
+  
+  c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  ggplot(dat %>% filter(dyad==d), aes(stage, f0sdDiff))+
+           geom_boxplot()+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
+  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", d, ".png"),
+         dpi = "retina")
+  if(t > 2){
+    eff[nrow(eff)+1,] <- c(d,
+                           unique(dat$condition[dat$dyad==d]),
+                           "globalConv",
+                           "f0sd",
+                           ifelse(est < 0, "negative", "positive"),
+                           est,
+                           t)
+  }
+}
+```
+
+```{r}
+effSave <- eff
+
+eff <- effSave %>% 
+  mutate_at(c("dyad", "condition", "direction", "type", "feature"), as.factor) %>% 
+  mutate_at(c("effect", "pORt"), as.numeric) %>% 
+  group_by(dyad) %>%
+  filter(n()>2) %>% 
+  ungroup() %>% 
+  mutate(type = ifelse(type == "globalProx", "globalConv", as.character(type))) %>% 
+  filter(type != "turnSync")
+```
+
+
+# Grouped
+
+## f0 averaged over each IPU
+
+```{r, include=FALSE}
+load(paste0(folder, "data.RData"))
+```
+
+### f0 mean
 
 Similar results if we look at *order* or at *turn*.
 
@@ -39,20 +318,22 @@ summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat))
 summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat))
 ```
 
-### Dividing between the two conditions
+#### Dividing between the two conditions
 
 It seems that the people in the impersonal condition are driving the divergence. This is true both when looking at *order* and *turn*.
 
 ```{r}
-summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="con")))
+summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(f0mean ~ prevf0meanC * order + (1|speaker), dat %>% filter(condition=="impersonal")))
 
-summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="con")))
+
++                            t)
++   }summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(f0mean ~ prevf0meanC * turn + (1|speaker), dat %>% filter(condition=="impersonal")))
 ```
 
 
-## f0 SD
+### f0 SD
 
 Looking at *order*: people diverged on f0 SD over time.
 
@@ -63,19 +344,19 @@ summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat))
 summary(lmer(f0sd ~ prevf0sdC * turn + (1|speaker), dat))
 ```
 
-### Dividing between the two conditions
+#### Dividing between the two conditions
 
 Same as with f0 mean: divergence on f0 SD (when looking at *order*), it were the dyads in the impersonal condition that drove the divergence.
 
 ```{r}
-summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="con")))
+summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(f0sd ~ prevf0sdC * order + (1|speaker), dat %>% filter(condition=="impersonal")))
 ```
 
 
-# f0 averaged over each turn
+## f0 averaged over each turn
 
-## f0 mean
+### f0 mean
 
 Looking at *order*, people diverged on f0 mean over the tasks.
 
@@ -91,17 +372,17 @@ summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat))
 summary(lmer(turnf0mean ~ prevTurnf0meanC * turn + (1|speaker), dat))
 ```
 
-### Dividing between the two conditions
+#### Dividing between the two conditions
 
 Again, people in the impersonal condition drove the divergence effect.
 
 ```{r}
-summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="con")))
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(turnf0mean ~ prevTurnf0meanC * order + (1|speaker), dat %>% filter(condition=="impersonal")))
 ```
 
 
-## f0 SD
+### f0 SD
 
 Looking at *order*, people diverged on f0 SD over the tasks.
 
@@ -113,19 +394,22 @@ summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat))
 ```
 
 
-### Dividing between the two conditions
+#### Dividing between the two conditions
 
 Here, looking at *order*, same pattern as before (impersonal condition driving divergence).
 
 Looking at *turn*, it's the other way around, but with a very small effect size.
 
 ```{r}
-summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="con")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * order + (1|speaker), dat %>% filter(condition=="impersonal")))
 
-summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="exp")))
-summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="con")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="close")))
+summary(lmer(turnf0sd ~ prevTurnf0sdC * turn + (1|speaker), dat %>% filter(condition=="impersonal")))
 ```
 
+# Session Info
 
-
+```{r}
+sessionInfo()
+```

@@ -22,8 +22,8 @@ TGv <- list.files(folderAll, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$") # v for vector
 files <- data.frame(TXT) %>% 
   mutate(TG = case_when(substr(TXT, 1, 6) %in% substr(TGv, 1, 6) ~ TGv[match(substr(TXT, 1, 6), substr(TGv, 1, 6))]))
 
-f0 <- data.frame(matrix(nrow=0, ncol=14))
-names(f0) <- c("file", "speaker", "turn", "IPU", "overlap", "f0mean", "f0med", "f0sd", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset", "overlapOnset", "overlapOffset")
+f0 <- data.frame(matrix(nrow=0, ncol=15))
+names(f0) <- c("file", "speaker", "turn", "IPU", "overlap", "f0mean", "f0med", "f0sd", "f0max", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset", "overlapOnset", "overlapOffset")
 
 for(i in 1:nrow(files)){
   speaker <- paste0(substr(files$TXT[i], 1, 4), substr(files$TXT[i], 8, 8))
@@ -36,10 +36,12 @@ for(i in 1:nrow(files)){
   txt <- read.table(paste0(folderAll, files$TXT[i]), header = TRUE, na.strings = "--undefined--") %>% 
     mutate(meanZ = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
            medZ = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
-           sdZ = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE)) %>% 
+           sdZ = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+           maxZ = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) %>% 
     mutate(f0mean = ifelse(abs(meanZ) > 2.5, NA, f0mean),
            f0med = ifelse(abs(medZ) > 2.5, NA, f0med),
-           f0sd = ifelse(abs(sdZ) > 2.5, NA, f0sd))
+           f0sd = ifelse(abs(sdZ) > 2.5, NA, f0sd),
+           f0may = ifelse(abs(maxZ) > 2.5, NA, f0max))
   tg <- tg.read(paste0(folderAll, files$TG[i]), encoding=detectEncoding(paste0(folderAll, files$TG[i])))
   
   for(p in 1:tg.getNumberOfIntervals(tg, turnTier)){
@@ -49,7 +51,7 @@ for(i in 1:nrow(files)){
                            speaker,
                            NA, NA,
                            overlapCount,
-                           NA, NA, NA, NA, NA, NA, NA,
+                           NA, NA, NA, NA, NA, NA, NA, NA,
                            as.numeric(tg.getIntervalStartTime(tg, turnTier, p)),
                            as.numeric(tg.getIntervalEndTime(tg, turnTier, p)))
     }
@@ -74,14 +76,15 @@ for(i in 1:nrow(files)){
           endIPU <- as.numeric(tg.getIntervalEndTime(tg, silenceTier, s))
           if((startIPU >= turnOnset & startIPU < turnOffset) | (endIPU > turnOnset & endIPU <= turnOffset)){
             ipuCount <- ipuCount + 1
-            f <- data.frame(matrix(nrow=0, ncol=3))
-            names(f) <- c("f0mean", "f0med", "f0sd")
+            f <- data.frame(matrix(nrow=0, ncol=4))
+            names(f) <- c("f0mean", "f0med", "f0sd", "f0max")
             for(l in 1:nrow(txt)){
               if(txt$onset[l] >= startIPU - 0.001){ # adding a 0.001 window because the txt file rounds up the onset and offset times
                 if(txt$offset[l] <= endIPU + 0.001){
                   f[nrow(f)+1,] <- c(as.numeric(txt$f0mean[l]),
                                      as.numeric(txt$f0med[l]),
-                                     as.numeric(txt$f0sd[l]))
+                                     as.numeric(txt$f0sd[l]),
+                                     as.numeric(txt$f0max[l]))
                 }
               }
             }
@@ -94,9 +97,11 @@ for(i in 1:nrow(files)){
                                    mean(f$f0mean, na.rm=TRUE),
                                    mean(f$f0med, na.rm=TRUE),
                                    mean(f$f0sd, na.rm=TRUE),
+                                   mean(f$f0max, na.rm=TRUE),
                                    turnOnset, turnOffset, startIPU, endIPU,
                                    NA, NA)
-            } else{turnCount <- turnCount - 1}
+            }
+            if(all(is.na(f))){ipuCount <- ipuCount - 1}
           }
         }
       }
@@ -117,7 +122,7 @@ overlaps <- f0 %>%
 dat <- f0 %>% 
   filter(is.na(overlap)) %>% 
   select(!c(overlap, overlapOnset, overlapOffset)) %>% 
-  mutate_at(c("f0mean", "f0med", "f0sd", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) %>%
+  mutate_at(c("f0mean", "f0med", "f0sd", "f0max", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) %>%
   mutate_at(c("file", "speaker"), as.factor) %>% 
   group_by(file, speaker) %>%
   mutate(index = 1:n()) %>% 
@@ -125,7 +130,8 @@ dat <- f0 %>%
   mutate(IPU = 1:n(),
          turnf0mean = mean(f0mean, na.rm=TRUE),
          turnf0med = mean(f0med, na.rm=TRUE),
-         turnf0sd = mean(f0sd, na.rm=TRUE)) %>% 
+         turnf0sd = mean(f0sd, na.rm=TRUE),
+         turnf0max = mean(f0max, na.rm=TRUE)) %>% 
   ungroup() %>% 
   mutate(turnDur = turnOffset - turnOnset,
          ipuDur = ipuOffset - ipuOnset,
@@ -136,6 +142,7 @@ dat <- f0 %>%
          f0mean = ifelse(is.nan(f0mean), NA, f0mean),
          f0med = ifelse(is.nan(f0med), NA, f0med),
          f0sd = ifelse(is.nan(f0sd), NA, f0sd),
+         f0max = ifelse(is.nan(f0max), NA, f0max),
          turnf0mean = ifelse(is.nan(turnf0mean), NA, turnf0mean),
          turnf0med = ifelse(is.nan(turnf0med), NA, turnf0med),
          turnf0sd = ifelse(is.nan(turnf0sd), NA, turnf0sd),
@@ -143,9 +150,11 @@ dat <- f0 %>%
          prevf0mean = NA,
          prevf0med = NA,
          prevf0sd = NA,
+         prevf0max = NA,
          prevTurnf0mean = NA,
          prevTurnf0med = NA,
-         prevTurnf0sd = NA)
+         prevTurnf0sd = NA,
+         prevTurnf0max = NA)
 
 # determine who is the first speaker in each, file
 for(f in unique(dat$file)){
@@ -171,6 +180,10 @@ for(i in 1:nrow(dat)){
                          dat$speaker != dat$speaker[i] &
                          dat$turn == dat$prevTurn[i] &
                          dat$IPU == dat$IPU[i]]
+  prevf0max <- dat$f0max[dat$file == dat$file[i] &
+                           dat$speaker != dat$speaker[i] &
+                           dat$turn == dat$prevTurn[i] &
+                           dat$IPU == dat$IPU[i]]
   prevTurnf0mean <- unique(dat$turnf0mean[dat$file == dat$file[i] &
                                             dat$speaker != dat$speaker[i] &
                                             dat$turn == dat$prevTurn[i]])
@@ -180,6 +193,9 @@ for(i in 1:nrow(dat)){
   prevTurnf0sd <- unique(dat$turnf0sd[dat$file == dat$file[i] &
                                         dat$speaker != dat$speaker[i] &
                                         dat$turn == dat$prevTurn[i]])
+  prevTurnf0max <- unique(dat$turnf0max[dat$file == dat$file[i] &
+                                          dat$speaker != dat$speaker[i] &
+                                          dat$turn == dat$prevTurn[i]])
   if(!purrr::is_empty(prevf0mean)){
     if(!any(is.na(prevf0mean))){
       dat$prevf0mean[i] <- prevf0mean
@@ -195,6 +211,11 @@ for(i in 1:nrow(dat)){
       dat$prevf0sd[i] <- prevf0sd
     }
   }
+  if(!purrr::is_empty(prevf0max)){
+    if(!any(is.na(prevf0max))){
+      dat$prevf0max[i] <- prevf0max
+    }
+  }
   if(!purrr::is_empty(prevTurnf0mean)){
     if(!any(is.na(prevTurnf0mean))){
       dat$prevTurnf0mean[i] <- prevTurnf0mean
@@ -208,6 +229,11 @@ for(i in 1:nrow(dat)){
   if(!purrr::is_empty(prevTurnf0sd)){
     if(!any(is.na(prevTurnf0sd))){
       dat$prevTurnf0sd[i] <- prevTurnf0sd
+    }
+  }
+  if(!purrr::is_empty(prevTurnf0max)){
+    if(!any(is.na(prevTurnf0max))){
+      dat$prevTurnf0max[i] <- prevTurnf0max
     }
   }
 }

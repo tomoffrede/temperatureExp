@@ -21,7 +21,14 @@ package.check <- lapply(
 # Start of my own code
 
 
-folder <- "C:/Users/tomof/Documents/1HU/ExperimentTemperature/ExploreData/"
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/"
+
+################# test.txt
+
+t <- read_lines(paste0(folder, "test.txt"))
+
+
+
 
 
 ################# Data1

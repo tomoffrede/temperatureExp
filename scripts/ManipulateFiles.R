@@ -158,3 +158,30 @@ for(d in dyads){
   file.rename(from = paste0(folder, f),
               to = paste0(folder, newName))
 }
+
+# Option 3
+
+folderOG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/wuppertal/oldFileNaming/"
+folderNEW <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/wuppertal/"
+
+filesOG <- list.files(folderOG, "\\.txt", recursive = TRUE)
+
+for(f in filesOG){
+  name1 <- str_split(f, fixed("-"))[[1]][[1]]
+  name2 <- paste0("-", (as.numeric(gsub(".txt", "", str_split(f, fixed("-"))[[1]][[2]])) + 11), ".txt")
+  file.copy(from=paste0(folderOG, f), to=paste0(folderNEW, name1, name2))
+}
+
+# Cut out first few lines of txt files (not tables)
+
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/wuppertal/allInfo/"
+folderNew <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/wuppertal/"
+files <- list.files(folder, "\\.txt")
+
+for(f in files){
+  t <- readLines(paste0(folder, f))
+  t <- t[21:length(t)]
+  writeLines(t, paste0(folderNew, f))
+}
+
+# Reformat txt files that have a wrong line division

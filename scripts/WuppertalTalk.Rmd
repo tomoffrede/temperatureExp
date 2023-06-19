@@ -1,0 +1,54 @@
+---
+title: "WuppertalTalk"
+author: "Tom Offrede"
+date: "2023-06-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Plotting temperature data
+
+```{r, include= FALSE}
+library(tidyverse)
+
+load(paste0(here::here(), "/data/tempData-wuppertal.RData"))
+```
+
+```{r}
+ggplot(dat, aes(frame, temperature))+
+  geom_point()+
+  geom_path()+
+  geom_smooth(method="lm")+
+  facet_grid(speaker~ROI)
+ggsave(filename = paste0(here::here(), "/figures/temperature/effects.png"),
+       dpi = "retina", width=3000, height=3000, unit="px")
+```
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=6))
+names(eff) <- c("speaker", "condition", "ROI", "direction", "effect", "p")
+
+for(s in unique(dat$speaker)){
+  for(roi in unique(dat$ROI[dat$speaker==s])){
+    r <- cor.test(dat$frame[dat$speaker==s], dat$temperature[dat$speaker==s], method="pearson")
+    ggplot(dat %>% filter(speaker==s, ROI==roi), aes(frame, temperature))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+    ggsave(filename = paste0(paste(here::here(), "figures", "temperature", roi, s, sep="/"), ".png"),
+           dpi = "retina")
+    if(r$p.value < 0.05){
+      eff[nrow(eff)+1,] <- c(s,
+                             unique(dat$condition[dat$speaker==s]),
+                             roi,
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
+    }
+  }
+}
+```
+
