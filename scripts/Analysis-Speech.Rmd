@@ -48,8 +48,8 @@ dat <- dat %>%
   ungroup() %>% 
   filter(task == "D1")
 
-eff <- data.frame(matrix(nrow=0, ncol=7))
-names(eff) <- c("dyad", "condition", "type", "feature", "direction", "effect", "pORt")
+effD <- data.frame(matrix(nrow=0, ncol=7))
+names(effD) <- c("dyad", "condition", "type", "feature", "direction", "effect", "pORt")
 ```
 
 ### Turn-level Sychrony: Correlations
@@ -64,7 +64,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnSync",
                            "f0mean",
@@ -81,7 +81,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnSync",
                            "f0med",
@@ -98,7 +98,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnSync",
                            "f0sd",
@@ -115,7 +115,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnSync",
                            "f0max",
@@ -139,7 +139,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnConv",
                            "f0mean",
@@ -156,7 +156,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnConv",
                            "f0med",
@@ -173,7 +173,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnConv",
                            "f0sd",
@@ -190,7 +190,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", d, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "turnConv",
                            "f0max",
@@ -222,7 +222,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", d, ".png"),
          dpi = "retina")
   if(t > 2){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "globalConv",
                            "f0mean",
@@ -240,7 +240,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", d, ".png"),
          dpi = "retina")
   if(t > 2){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "globalConv",
                            "f0med",
@@ -258,7 +258,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", d, ".png"),
          dpi = "retina")
   if(t > 2){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "globalConv",
                            "f0max",
@@ -276,7 +276,7 @@ for(d in unique(dat$dyad)){
   ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", d, ".png"),
          dpi = "retina")
   if(t > 2){
-    eff[nrow(eff)+1,] <- c(d,
+    effS[nrow(effS)+1,] <- c(d,
                            unique(dat$condition[dat$dyad==d]),
                            "globalConv",
                            "f0sd",
@@ -288,9 +288,9 @@ for(d in unique(dat$dyad)){
 ```
 
 ```{r}
-effSave <- eff
+effSave <- effS
 
-eff <- effSave %>% 
+effS <- effSave %>% 
   mutate_at(c("dyad", "condition", "direction", "type", "feature"), as.factor) %>% 
   mutate_at(c("effect", "pORt"), as.numeric) %>% 
   group_by(dyad) %>%
