@@ -79,6 +79,17 @@ dat <- dat %>%
 
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 
-dat <- merge(dat, m, by="speaker")
+m <- m %>% 
+  pivot_longer(realTempPre:realTempPost, names_to = "stage", values_to = "realTemp") %>% 
+  mutate(stage = ifelse(stage == "realTempPre", "beginning", ifelse(stage == "realTempDuring", "middle", "ending")))
+
+dat <- dat %>% 
+  group_by(speaker) %>% 
+  mutate(stageFrame = frame / max(frame),
+         stage = ifelse(stageFrame <= 0.33, "beginning", ifelse(stageFrame >= 0.66, "ending", "middle"))) %>% 
+  ungroup() %>% 
+  select(-stageFrame)
+
+dat <- merge(dat, m, by=c("speaker", "stage"))
 
 save(dat, file=paste0(here::here(), "/data/tempData-wuppertal.RData"))
