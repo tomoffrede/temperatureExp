@@ -16,7 +16,6 @@ library(tidyverse)
 library(lme4)
 
 load(paste0(here::here(), "/data/tempData-wuppertal.RData"))
-unique(dat$speaker)
 ```
 
 ```{r}
@@ -38,13 +37,13 @@ for(s in unique(dat$speaker)){
     c <- broom::tidy(lm(temperature ~ frame + realTemp, dat %>% filter(speaker==s, ROI==roi)))
     est <- c$estimate[2]
     p <- c$p.value[2]
-    ggplot(dat %>% filter(speaker==s, ROI==roi), aes(frame, temperature))+
-      geom_point()+
-      geom_smooth(method="lm")+
-      geom_vline(xintercept=12)+
-      ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
-    ggsave(filename = paste0(paste(here::here(), "figures", "temperature", roi, s, sep="/"), ".png"),
-           dpi = "retina")
+    # ggplot(dat %>% filter(speaker==s, ROI==roi), aes(frame, temperature))+
+    #   geom_point()+
+    #   geom_smooth(method="lm")+
+    #   geom_vline(xintercept=12)+
+    #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+    # ggsave(filename = paste0(paste(here::here(), "figures", "temperature", roi, s, sep="/"), ".png"),
+    #        dpi = "retina")
     if(p < 0.05){
       effT[nrow(effT)+1,] <- c(s,
                                unique(dat$condition[dat$speaker==s]),
@@ -57,6 +56,39 @@ for(s in unique(dat$speaker)){
   }
 }
 ```
+
+## Temperature convergence?
+
+```{r}
+tempConv <- data.frame(matrix(nrow=0, ncol=6))
+names(tempConv) <- c("speaker", "condition", "ROI", "direction", "estimate", "p")
+
+for(s in unique(dat$speaker)){
+  for(roi in unique(dat$ROI[dat$speaker==s])){
+    if(any(!is.na(dat$tempDiff[dat$speaker==s & dat$ROI==roi]))){
+      c <- broom::tidy(lm(tempDiff ~ frame, dat %>% filter(speaker==s, ROI==roi)))
+      est <- c$estimate[2]
+      p <- c$p.value[2]
+      # ggplot(dat %>% filter(speaker==s, ROI==roi), aes(frame, tempDiff))+
+      #   geom_point()+
+      #   geom_smooth(method="lm")+
+      #   geom_vline(xintercept=12)+
+      #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+      # ggsave(filename = paste0(paste(here::here(), "figures", "temperature", "conv", roi, s, sep="/"), ".png"),
+      #        dpi = "retina")
+      if(p < 0.05){
+        tempConv[nrow(tempConv)+1,] <- c(s,
+                                         unique(dat$condition[dat$speaker==s]),
+                                         roi,
+                                         ifelse(est < 0, "negative", "positive"),
+                                         est,
+                                         p)
+      }
+    }
+  }
+}
+```
+
 
 # Speech data
 
@@ -90,11 +122,11 @@ names(effD) <- c("dyad", "condition", "type", "ROI-feat", "direction", "effect",
 ```{r}
 for(s in unique(dat$speaker)){
   r <- cor.test(dat$turnf0mean[dat$speaker==s], dat$prevTurnf0mean[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(prevTurnf0mean, turnf0mean, size=turn))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", s, ".png"),
+  # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0mean, turnf0mean, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", s, ".png"),
          dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
@@ -107,12 +139,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$turnf0med[dat$speaker==s], dat$prevTurnf0med[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(prevTurnf0med, turnf0med, size=turn))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0med, turnf0med, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -124,12 +156,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$turnf0sd[dat$speaker==s], dat$prevTurnf0sd[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(prevTurnf0sd, turnf0sd, size=turn))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0sd, turnf0sd, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -141,12 +173,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$turnf0max[dat$speaker==s], dat$prevTurnf0max[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(prevTurnf0max, turnf0max, size=turn))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0max, turnf0max, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -164,12 +196,12 @@ for(s in unique(dat$speaker)){
 ```{r}
 for(s in unique(dat$speaker)){
   r <- cor.test(dat$f0meanDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(turn, f0meanDiff))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0meanDiff))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -181,12 +213,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$f0medDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(turn, f0medDiff))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0medDiff))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -198,12 +230,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$f0sdDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(turn, f0sdDiff))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0sdDiff))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -215,12 +247,12 @@ for(s in unique(dat$speaker)){
   }
   
   r <- cor.test(dat$f0maxDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  ggplot(dat %>% filter(speaker==s), aes(turn, f0maxDiff))+
-    geom_point()+
-    geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0maxDiff))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", s, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -248,11 +280,11 @@ for(s in unique(dat$speaker)){
   c <- broom::tidy(lm(f0meanDiff ~ stage, dat %>% filter(speaker==s)))
   est <- c$estimate[2]
   t <- c$statistic[2]
-  ggplot(dat %>% filter(speaker==s), aes(stage, f0meanDiff))+
-    geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(stage, f0meanDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", s, ".png"),
+  #        dpi = "retina")
   if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -266,11 +298,11 @@ for(s in unique(dat$speaker)){
   c <- broom::tidy(lm(f0medDiff ~ stage, dat %>% filter(speaker==s)))
   est <- c$estimate[2]
   t <- c$statistic[2]
-  ggplot(dat %>% filter(speaker==s), aes(stage, f0medDiff))+
-    geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(stage, f0medDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", s, ".png"),
+  #        dpi = "retina")
   if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -284,11 +316,11 @@ for(s in unique(dat$speaker)){
   c <- broom::tidy(lm(f0maxDiff ~ stage, dat %>% filter(speaker==s)))
   est <- c$estimate[2]
   t <- c$statistic[2]
-  ggplot(dat %>% filter(speaker==s), aes(stage, f0maxDiff))+
-    geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(stage, f0maxDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", s, ".png"),
+  #        dpi = "retina")
   if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
@@ -302,11 +334,11 @@ for(s in unique(dat$speaker)){
   c <- broom::tidy(lm(f0sdDiff ~ stage, dat %>% filter(speaker==s)))
   est <- c$estimate[2]
   t <- c$statistic[2]
-  ggplot(dat %>% filter(speaker==s), aes(stage, f0sdDiff))+
-    geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", s, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(speaker==s), aes(stage, f0sdDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", s, ".png"),
+  #        dpi = "retina")
   if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
