@@ -74,6 +74,23 @@ dat <- dat %>%
   mutate_at(c("speaker", "ROI"), as.factor) %>%
   mutate_at("frame", as.integer) %>%
   mutate_at(c("temperature"), as.numeric)
+  
+# There's a very high (.97+) correlation between C1 and C2 and between E1 and E2
+
+c <- dat %>%
+  filter(ROI %in% c("C1", "C2", "E1", "E2")) %>% 
+  mutate(ROI = ifelse(ROI %in% c("C1", "C2"), "C", "E")) %>% 
+  group_by(speaker, frame, ROI) %>% 
+  mutate(newTemp = mean(temperature, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  filter(!duplicated(paste(speaker, frame, ROI))) %>% 
+  select(-temperature) %>% 
+  rename(temperature=newTemp)
+
+dat <- dat %>% 
+  filter(ROI %!in% c("C1", "C2", "E1", "E2"))
+
+dat <- rbind(dat, c)
 
 # Join metadata (which was cleaned in Preprocessing-Speech):
 
@@ -88,7 +105,34 @@ dat <- dat %>%
   mutate(stageFrame = frame / max(frame),
          stage = ifelse(stageFrame <= 0.33, "beginning", ifelse(stageFrame >= 0.66, "ending", "middle"))) %>% 
   ungroup() %>% 
-  select(-stageFrame)
+  select(-stageFrame) %>% 
+  mutate(tempDiff = NA)
+
+dat0 <- dat
+# dat <- dat0
+
+for(s in unique(dat$speaker)){
+  for(f in dat$frame){
+    for(r in dat$ROI){
+      currentTemp <- as.numeric(dat$temperature[dat$speaker==s &
+                                                  dat$frame==f &
+                                                  dat$ROI==r])
+      otherTemp <- as.numeric(dat$temperature[dat$speaker != s &
+                                                substr(dat$speaker, 1, 3) == substr(s, 1, 3) &
+                                                dat$frame==f &
+                                                dat$ROI==r])
+      if(!purrr::is_empty(currentTemp)){
+        if(!any(is.na(currentTemp))){
+          if(!purrr::is_empty(otherTemp)){
+            if(!any(is.na(otherTemp))){
+              dat$tempDiff[dat$speaker==s & dat$frame==f & dat$ROI==r] <- as.numeric(abs(currentTemp - otherTemp))
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 dat <- merge(dat, m, by=c("speaker", "stage"))
 
