@@ -2,7 +2,11 @@
 title: "WuppertalTalk"
 author: "Tom Offrede"
 date: "2023-06-19"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
 ---
 
 ```{r setup, include=FALSE}
@@ -14,8 +18,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, include= FALSE}
 library(tidyverse)
 library(lme4)
+library(viridis)
+library(ggdist)
+`%!in%` <- Negate(`%in%`)
 
 load(paste0(here::here(), "/data/tempData-wuppertal.RData"))
+dat <- dat %>% 
+  group_by(speaker, ROI) %>% 
+  mutate(tz = (temperature-mean(temperature, na.rm=TRUE))/sd(temperature, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  filter(abs(tz) < 2.5,
+         ROI != "Face")
 ```
 
 ```{r}
@@ -30,7 +43,7 @@ load(paste0(here::here(), "/data/tempData-wuppertal.RData"))
 
 ```{r}
 effT <- data.frame(matrix(nrow=0, ncol=7))
-names(effT) <- c("speaker", "condition", "type", "ROI-feat", "direction", "effect", "pORt")
+names(effT) <- c("speaker_dyad", "condition", "type", "ROI_feat", "direction", "effect", "pORt")
 
 for(s in unique(dat$speaker)){
   for(roi in unique(dat$ROI[dat$speaker==s])){
@@ -63,7 +76,7 @@ for(s in unique(dat$speaker)){
 tempConv <- data.frame(matrix(nrow=0, ncol=6))
 names(tempConv) <- c("speaker", "condition", "ROI", "direction", "estimate", "p")
 
-for(s in unique(dat$speaker)){
+for(s in unique(dat$speaker[substr(dat$speaker, 5, 5)=="A"])){
   for(roi in unique(dat$ROI[dat$speaker==s])){
     if(any(!is.na(dat$tempDiff[dat$speaker==s & dat$ROI==roi]))){
       c <- broom::tidy(lm(tempDiff ~ frame, dat %>% filter(speaker==s, ROI==roi)))
@@ -87,10 +100,14 @@ for(s in unique(dat$speaker)){
     }
   }
 }
+
+# tempConv <- tempConv %>% 
+#   filter(ROI %in% c("C", "N", "F"))
 ```
 
-
 # Speech data
+
+## Dyads
 
 ### Turn-level Sychrony: Correlations
 
@@ -100,7 +117,7 @@ folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData
 load(paste0(folder, "data.RData"))
 
 dat <- dat %>% 
-  # filter(dyad %in% c("FXO","SGB", "TTY", "ZNV")) %>% 
+  filter(dyad %in% c("FXO","SGB", "TTY", "ZNV")) %>%
   mutate(f0meanDiff = abs(turnf0mean - prevTurnf0mean),
          f0medDiff = abs(turnf0med - prevTurnf0med),
          f0sdDiff = abs(turnf0sd - prevTurnf0sd),
@@ -113,80 +130,446 @@ dat <- dat %>%
   filter(task == "D1")
 
 effS <- data.frame(matrix(nrow=0, ncol=7))
-names(effS) <- c("speaker", "condition", "type", "ROI-feat", "direction", "effect", "pORt")
+names(effS) <- c("speaker_dyad", "condition", "type", "ROI_feat", "direction", "effect", "pORt")
 
 effD <- data.frame(matrix(nrow=0, ncol=7))
-names(effD) <- c("dyad", "condition", "type", "ROI-feat", "direction", "effect", "pORt")
+names(effD) <- c("speaker_dyad", "condition", "type", "ROI_feat", "direction", "effect", "pORt")
+```
+
+```{r}
+for(d in unique(dat$dyad)){
+  c <- broom.mixed::tidy(lmer(turnf0mean ~ prevTurnf0mean + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0mean[dat$dyad==d], dat$prevTurnf0mean[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0mean, turnf0mean, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", est, ", p = ", t),
+  #        x = "f0 mean",
+  #        y = "previous f0 mean")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level sync/f0mean/", d, ".png"),
+  #        dpi = "retina")
+  if(t > 2){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0mean",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
+  }
+  
+  c <- broom.mixed::tidy(lmer(turnf0med ~ prevTurnf0med + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0med[dat$dyad==d], dat$prevTurnf0med[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0med, turnf0med, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", est, ", p = ", t),
+  #        x = "f0 median",
+  #        y = "previous f0 median")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level sync/f0med/", d, ".png"),
+  #        dpi = "retina")
+  if(t > 2){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0med",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
+  }
+  
+  c <- broom.mixed::tidy(lmer(turnf0sd ~ prevTurnf0sd + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0sd[dat$dyad==d], dat$prevTurnf0sd[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0sd, turnf0sd, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", est, ", p = ", t),
+  #        x = "f0 SD",
+  #        y = "previous f0 SD")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level sync/f0sd/", d, ".png"),
+  #        dpi = "retina")
+  if(t > 2){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0sd",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
+  }
+  
+  c <- broom.mixed::tidy(lmer(turnf0max ~ prevTurnf0max + (1|speaker), dat %>% filter(dyad==d)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0max[dat$dyad==d], dat$prevTurnf0max[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0max, turnf0max, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", est, ", p = ", t),
+  #        x = "f0 max",
+  #        y = "previous f0 max")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level sync/f0max/", d, ".png"),
+  #        dpi = "retina")
+  if(t > 2){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0max",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
+  }
+}
+```
+
+### Turn-level Convergence
+
+```{r}
+for(d in unique(dat$dyad)){
+  # c <- broom.mixed::tidy(lmer(f0meanDiff ~ turn + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  r <- cor.test(dat$f0meanDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0meanDiff))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$estimate),
+         x = "time",
+         y = "f0 mean difference")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level conv/f0mean/", d, ".png"),
+  #        dpi = "retina")
+  if(r$p.value < 0.05){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0mean",
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
+                             r$estimate,
+                             r$p.value)
+  }
+  
+  # c <- broom.mixed::tidy(lmer(f0medDiff ~ turn + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  r <- cor.test(dat$f0medDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0medDiff, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 median difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level conv/f0med/", d, ".png"),
+  #        dpi = "retina")
+  if(r$p.value < 0.05){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0med",
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
+                             r$estimate,
+                             r$p.value)
+  }
+  
+  # c <- broom.mixed::tidy(lmer(f0sdDiff ~ turn + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  r <- cor.test(dat$f0sdDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0sdDiff, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 SD difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level conv/f0sd/", d, ".png"),
+  #        dpi = "retina")
+  if(r$p.value < 0.05){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0sd",
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
+                             r$estimate,
+                             r$p.value)
+  }
+  
+  # c <- broom.mixed::tidy(lmer(f0maxDiff ~ turn + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  r <- cor.test(dat$f0maxDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0maxDiff, size=turn))+
+  #   geom_point()+
+  #   geom_smooth(method="lm")+
+  #   labs(title=paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 max difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/turn-level conv/f0max/", d, ".png"),
+  #        dpi = "retina")
+  if(r$p.value < 0.05){
+    effD[nrow(effD)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0max",
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
+                             r$estimate,
+                             r$p.value)
+  }
+}
+
+```
+
+```{r, include=FALSE}
+# data set to analyze global-level convergence
+datSave <- dat
+
+datG <- data.frame(matrix(nrow=0, ncol=10))
+names(datG) <- c("speaker", "beginf0meanDiff", "beginf0medDiff", "beginf0sdDiff", "beginf0maxDiff", "endf0meanDiff", "endf0medDiff", "endf0sdDiff", "endf0maxDiff", "dyad")
+
+for(s in unique(dat$speaker)){
+  b <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="beginning", delete=="no") %>% 
+    select(speaker, f0meanDiff:f0maxDiff)
+  names(b)[2:5] <- paste0("begin", names(b[2:5]))
+  
+  e <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="ending", delete=="no") %>% 
+    select(f0meanDiff:f0maxDiff)
+  names(e) <- paste0("end", names(e))
+  
+  rd <- nrow(b) - nrow(e)
+  if(rd < 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(b)))
+    names(add) <- names(b)
+    add[,1] <- unique(b[,1])
+    b <- rbind(b, add)
+  }
+  if(rd > 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(e)))
+    names(add) <- names(e)
+    e <- rbind(e, add)
+  }
+  
+  d <- cbind(b, e) %>% 
+    mutate(dyad = substr(s, 1, 3))
+  datG <- rbind(datG, d)
+}
+```
+
+### Global-level convergence
+
+```{r}
+# annotate first 3rd of data set (or first half?) as "beginning" and the last as "ending"
+# do t-test or lmer with f0Diff ~ stage (i.e. beginning vs ending)
+# visualize with boxplots
+
+dat <- dat %>% 
+  filter(!is.na(stage))
+
+for(d in unique(datG$dyad)){
+  test <- t.test(datG$beginf0meanDiff[datG$dyad==d], datG$endf0meanDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0meanDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  # ggplot(dat %>% filter(dyad==d), aes(stage, f0meanDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0mean/", d, ".png"),
+  #        dpi = "retina")
+  if(p < 0.05){
+    effS[nrow(effS)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0mean",
+                             ifelse(est < 0, "divergence", "convergence"),
+                             est,
+                             p)
+  }
+  
+  test <- t.test(datG$beginf0medDiff[datG$dyad==d], datG$endf0medDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0medDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  ggplot(dat %>% filter(dyad==d), aes(stage, f0medDiff))+
+    geom_boxplot()+
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0med/", d, ".png"),
+  #        dpi = "retina")
+  if(p < 0.05){
+    effS[nrow(effS)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0med",
+                             ifelse(est < 0, "divergence", "convergence"),
+                             est,
+                             p)
+  }
+  
+  test <- t.test(datG$beginf0maxDiff[datG$dyad==d], datG$endf0maxDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  # ggplot(dat %>% filter(dyad==d), aes(stage, f0maxDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0max/", d, ".png"),
+  #        dpi = "retina")
+  if(p < 0.05){
+    effS[nrow(effS)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0max",
+                             ifelse(est < 0, "divergence", "convergence"),
+                             est,
+                             p)
+  }
+  
+  test <- t.test(datG$beginf0sdDiff[datG$dyad==d], datG$endf0sdDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
+  # ggplot(dat %>% filter(dyad==d), aes(stage, f0sdDiff))+
+  #   geom_boxplot()+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0sd/", d, ".png"),
+  #        dpi = "retina")
+  if(p < 0.05){
+    effS[nrow(effS)+1,] <- c(d,
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0sd",
+                             ifelse(est < 0, "divergence", "convergence"),
+                             est,
+                             p)
+  }
+}
+```
+
+## Individual speakers
+
+### Turn-level Sychrony: Correlations
+
+```{r, include=FALSE}
+folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+
+load(paste0(folder, "data.RData"))
+
+dat <- dat %>% 
+  filter(dyad %in% c("FXO","SGB", "TTY", "ZNV")) %>%
+  mutate(f0meanDiff = abs(turnf0mean - prevTurnf0mean),
+         f0medDiff = abs(turnf0med - prevTurnf0med),
+         f0sdDiff = abs(turnf0sd - prevTurnf0sd),
+         f0maxDiff = abs(turnf0max - prevTurnf0max)) %>% 
+  group_by(speaker, task) %>% 
+  filter(!duplicated(turn)) %>% 
+  mutate(stageTurn = turn / max(turn),
+         stage = ifelse(stageTurn <= 0.33, "beginning", ifelse(stageTurn >= 0.66, "ending", NA))) %>% 
+  ungroup() %>% 
+  filter(task == "D1")
 ```
 
 ```{r}
 for(s in unique(dat$speaker)){
-  r <- cor.test(dat$turnf0mean[dat$speaker==s], dat$prevTurnf0mean[dat$speaker==s], method="pearson")
+  c <- broom::tidy(lm(turnf0mean ~ prevTurnf0mean, dat %>% filter(speaker==s)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0mean[dat$speaker==s], dat$prevTurnf0mean[dat$speaker==s], method="pearson")
   # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0mean, turnf0mean, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", s, ".png"),
-         dpi = "retina")
-  if(r$p.value < 0.05){
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", est, ", p = ", t),
+  #        x = "f0 mean",
+  #        y = "previous f0 mean")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level sync/f0mean/", s, ".png"),
+  #        dpi = "retina")
+  if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnSync",
                              "f0mean",
-                             ifelse(r$estimate < 0, "negative", "positive"),
-                             r$estimate,
-                             r$p.value)
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
   }
   
-  r <- cor.test(dat$turnf0med[dat$speaker==s], dat$prevTurnf0med[dat$speaker==s], method="pearson")
+  c <- broom::tidy(lm(turnf0med ~ prevTurnf0med, dat %>% filter(speaker==s)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0med[dat$speaker==s], dat$prevTurnf0med[dat$speaker==s], method="pearson")
   # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0med, turnf0med, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", est, ", p = ", t),
+  #        x = "f0 median",
+  #        y = "previous f0 median")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level sync/f0med/", s, ".png"),
   #        dpi = "retina")
-  if(r$p.value < 0.05){
+  if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnSync",
                              "f0med",
-                             ifelse(r$estimate < 0, "negative", "positive"),
-                             r$estimate,
-                             r$p.value)
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
   }
   
-  r <- cor.test(dat$turnf0sd[dat$speaker==s], dat$prevTurnf0sd[dat$speaker==s], method="pearson")
+  c <- broom::tidy(lm(turnf0sd ~ prevTurnf0sd, dat %>% filter(speaker==s)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0sd[dat$speaker==s], dat$prevTurnf0sd[dat$speaker==s], method="pearson")
   # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0sd, turnf0sd, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", est, ", p = ", t),
+  #        x = "f0 SD",
+  #        y = "previous f0 SD")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level sync/f0sd/", s, ".png"),
   #        dpi = "retina")
-  if(r$p.value < 0.05){
+  if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnSync",
                              "f0sd",
-                             ifelse(r$estimate < 0, "negative", "positive"),
-                             r$estimate,
-                             r$p.value)
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
   }
   
-  r <- cor.test(dat$turnf0max[dat$speaker==s], dat$prevTurnf0max[dat$speaker==s], method="pearson")
+  c <- broom::tidy(lm(turnf0max ~ prevTurnf0max, dat %>% filter(speaker==s)))
+  est <- c$estimate[2]
+  t <- c$statistic[2]
+  # r <- cor.test(dat$turnf0max[dat$speaker==s], dat$prevTurnf0max[dat$speaker==s], method="pearson")
   # ggplot(dat %>% filter(speaker==s), aes(prevTurnf0max, turnf0max, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", est, ", p = ", t),
+  #        x = "f0 max",
+  #        y = "previous f0 max")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level sync/f0max/", s, ".png"),
   #        dpi = "retina")
-  if(r$p.value < 0.05){
+  if(t > 2){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnSync",
                              "f0max",
-                             ifelse(r$estimate < 0, "negative", "positive"),
-                             r$estimate,
-                             r$p.value)
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             t)
   }
 }
 ```
@@ -195,70 +578,90 @@ for(s in unique(dat$speaker)){
 
 ```{r}
 for(s in unique(dat$speaker)){
+  # c <- broom::tidy(lm(f0meanDiff ~ turn, dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   r <- cor.test(dat$f0meanDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  # ggplot(dat %>% filter(speaker==s), aes(turn, f0meanDiff))+
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0meanDiff, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 mean difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level conv/f0mean/", s, ".png"),
   #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnConv",
                              "f0mean",
-                             ifelse(r$estimate < 0, "negative", "positive"),
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
                              r$estimate,
                              r$p.value)
   }
   
+  # c <- broom::tidy(lm(f0medDiff ~ turn, dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   r <- cor.test(dat$f0medDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  # ggplot(dat %>% filter(speaker==s), aes(turn, f0medDiff))+
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0medDiff, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 median difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level conv/f0med/", s, ".png"),
   #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnConv",
                              "f0med",
-                             ifelse(r$estimate < 0, "negative", "positive"),
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
                              r$estimate,
                              r$p.value)
   }
   
+  # c <- broom::tidy(lm(f0sdDiff ~ turn, dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   r <- cor.test(dat$f0sdDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  # ggplot(dat %>% filter(speaker==s), aes(turn, f0sdDiff))+
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0sdDiff, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 SD difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level conv/f0sd/", s, ".png"),
   #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnConv",
                              "f0sd",
-                             ifelse(r$estimate < 0, "negative", "positive"),
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
                              r$estimate,
                              r$p.value)
   }
   
+  # c <- broom::tidy(lm(f0maxDiff ~ turn, dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   r <- cor.test(dat$f0maxDiff[dat$speaker==s], dat$turn[dat$speaker==s], method="pearson")
-  # ggplot(dat %>% filter(speaker==s), aes(turn, f0maxDiff))+
+  # ggplot(dat %>% filter(speaker==s), aes(turn, f0maxDiff, size=turn))+
   #   geom_point()+
   #   geom_smooth(method="lm")+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$p.value))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", s, ".png"),
+  #   labs(title=paste0(dat$condition[dat$speaker==s], " - r = ", r$estimate, ", p = ", r$estimate),
+  #        x = "f0 max difference",
+  #        y = "time")
+  # ggsave(filename = paste0(here::here(), "/figures/speech/speakers/turn-level conv/f0max/", s, ".png"),
   #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "turnConv",
                              "f0max",
-                             ifelse(r$estimate < 0, "negative", "positive"),
+                             ifelse(r$estimate < 0, "convergence", "divergence"),
                              r$estimate,
                              r$p.value)
   }
@@ -276,77 +679,89 @@ for(s in unique(dat$speaker)){
 dat <- dat %>% 
   filter(!is.na(stage))
 
-for(s in unique(dat$speaker)){
-  c <- broom::tidy(lm(f0meanDiff ~ stage, dat %>% filter(speaker==s)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+for(s in unique(datG$speaker)){
+  test <- t.test(datG$beginf0meanDiff[datG$speaker==s], datG$endf0meanDiff[datG$speaker==s], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0meanDiff ~ stage + (1|speaker), dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   # ggplot(dat %>% filter(speaker==s), aes(stage, f0meanDiff))+
   #   geom_boxplot()+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", s, ".png"),
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0mean/", s, ".png"),
   #        dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "globalConv",
                              "f0mean",
-                             ifelse(est < 0, "negative", "positive"),
+                             ifelse(est < 0, "divergence", "convergence"),
                              est,
-                             t)
+                             p)
   }
   
-  c <- broom::tidy(lm(f0medDiff ~ stage, dat %>% filter(speaker==s)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+  test <- t.test(datG$beginf0medDiff[datG$speaker==s], datG$endf0medDiff[datG$speaker==s], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0medDiff ~ stage + (1|speaker), dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   # ggplot(dat %>% filter(speaker==s), aes(stage, f0medDiff))+
   #   geom_boxplot()+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", s, ".png"),
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0med/", s, ".png"),
   #        dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "globalConv",
                              "f0med",
-                             ifelse(est < 0, "negative", "positive"),
+                             ifelse(est < 0, "divergence", "convergence"),
                              est,
-                             t)
+                             p)
   }
   
-  c <- broom::tidy(lm(f0maxDiff ~ stage, dat %>% filter(speaker==s)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+  test <- t.test(datG$beginf0maxDiff[datG$speaker==s], datG$endf0maxDiff[datG$speaker==s], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   # ggplot(dat %>% filter(speaker==s), aes(stage, f0maxDiff))+
   #   geom_boxplot()+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", s, ".png"),
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0max/", s, ".png"),
   #        dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "globalConv",
                              "f0max",
-                             ifelse(est < 0, "negative", "positive"),
+                             ifelse(est < 0, "divergence", "convergence"),
                              est,
-                             t)
+                             p)
   }
   
-  c <- broom::tidy(lm(f0sdDiff ~ stage, dat %>% filter(speaker==s)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+  test <- t.test(datG$beginf0sdDiff[datG$speaker==s], datG$endf0sdDiff[datG$speaker==s], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(speaker==s)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   # ggplot(dat %>% filter(speaker==s), aes(stage, f0sdDiff))+
   #   geom_boxplot()+
-  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", t = ", t))
-  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", s, ".png"),
+  #   ggtitle(paste0(dat$condition[dat$speaker==s], " - est = ", est, ", p = ", p))
+  # ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0sd/", s, ".png"),
   #        dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(s,
                              unique(dat$condition[dat$speaker==s]),
                              "globalConv",
                              "f0sd",
-                             ifelse(est < 0, "negative", "positive"),
+                             ifelse(est < 0, "divergence", "convergence"),
                              est,
-                             t)
+                             p)
   }
 }
 ```
@@ -354,6 +769,349 @@ for(s in unique(dat$speaker)){
 # Join temperature and speech
 
 ```{r}
-eff <- rbind(effT, effS)
+eff0 <- rbind(effT, effS)
+eff <- rbind(eff0, effD) %>% 
+  filter(ROI_feat %!in% c("Face", "M"), type!="turnSync")
+print(eff)
+
+# f <- eff %>% filter(grepl("FXO", speaker_dyad))
+# s <- eff %>% filter(grepl("SGB", speaker_dyad))
+# t <- eff %>% filter(grepl("TTY", speaker_dyad))
+# z <- eff %>% filter(grepl("ZNV", speaker_dyad))
 ```
 
+# Actual Figures
+
+```{r, include=FALSE}
+theme_set(theme_minimal()+
+            theme(panel.grid.minor = element_blank(),
+                  panel.grid.major = element_blank(),
+                  axis.title = element_text(size=14),
+                  strip.text = element_text(size = 14),
+                  plot.title = element_text(size=17)))
+
+# scales::show_col(viridis_pal(option="D")(8))
+
+myColors <- scale_color_manual(values = c("A-1" = "#440154FF",
+                                          "A-2" = "#46337EFF",
+                                          "B-1" = "#365C8DFF",
+                                          "B-2" = "#277F8EFF",
+                                          "C-1" = "#1FA187FF",
+                                          "C-2" = "#4AC16DFF",
+                                          "D-1" = "#9FDA3AFF",
+                                          "D-2" = "#FDE725FF")) 
+```
+
+## Temperature
+
+```{r, include=FALSE}
+load(paste0(here::here(), "/data/tempData-wuppertal.RData"))
+
+d <- dat %>% 
+  filter(ROI %in% c("N", "F", "C", "E")) %>% 
+  mutate(sign = case_when(
+    paste0(speaker, ROI) %in% paste0(eff$speaker_dyad, eff$ROI_feat) ~ "yes",
+    TRUE ~ as.character(NA)
+  ),
+  sign = ifelse(paste0(speaker, ROI) == "ZNV-AC", NA, sign),
+  speaker = case_when(
+    speaker == "ZNV-A" ~ "A-1",
+    speaker == "ZNV-B" ~ "A-2",
+    speaker == "TTY-A" ~ "B-1",
+    speaker == "TTY-B" ~ "B-2",
+    speaker == "SGB-A" ~ "C-1",
+    speaker == "SGB-B" ~ "C-2",
+    speaker == "FXO-A" ~ "D-1",
+    speaker == "FXO-B" ~ "D-2"
+  ),
+  ROI = case_when(
+    ROI == "N" ~ "Nose",
+    ROI == "F" ~ "Forehead",
+    ROI == "C" ~ "Cheeks",
+    ROI == "E" ~ "Eyes"
+  ))
+```
+
+### Cheeks and Nose
+
+```{r, include= FALSE}
+# Only positive slopes - All
+
+ggplot(d %>% filter(ROI %in% c("Cheeks", "Nose"), speaker %!in% c("C-1", "C-2")), aes(frame, temperature, color=speaker)) +
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~ROI)+
+  labs(x = "Time",
+       y = "Temperature",
+       color = "Speaker")+
+  myColors
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "Temperature_CN_Positive", sep="/"), ".png"),
+       dpi = "retina")
+
+# Only positive slopes - only significant
+
+ggplot(d %>% filter(sign == "yes", ROI %in% c("Cheeks", "Nose"), speaker %!in% c("C-1", "C-2")), aes(frame, temperature, color=speaker)) +
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~ROI)+
+  labs(x = "Time",
+       y = "Temperature",
+       color = "Speaker")+
+  myColors
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "Temperature_CN_Positive_Sign", sep="/"), ".png"),
+       dpi = "retina")
+
+# With negative slopes
+
+ggplot(d %>% filter(sign=="yes", ROI %in% c("Cheeks", "Nose")), aes(frame, temperature, color=speaker)) +
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~ROI)+
+  labs(x = "Time",
+       y = "Temperature",
+       color = "Speaker")+
+  myColors
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "Temperature_CN_All", sep="/"), ".png"),
+       dpi = "retina")
+```
+
+### Forehead and Eyes
+
+```{r, include= FALSE}
+# Only positive slopes - All
+
+ggplot(d %>% filter(ROI %in% c("Forehead", "Eyes")), aes(frame, temperature, color=speaker)) +
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~ROI)+
+  labs(x = "Time",
+       y = "Temperature",
+       color = "Speaker")+
+  myColors+
+  ylim(c(32,35.75))
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "Temperature_FE", sep="/"), ".png"),
+       dpi = "retina")
+
+ggplot(d %>% filter(sign=="yes", ROI %in% c("Forehead", "Eyes")), aes(frame, temperature, color=speaker)) +
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~ROI)+
+  labs(x = "Time",
+       y = "Temperature",
+       color = "Speaker")+
+  myColors+
+  ylim(c(32,35.75))
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "Temperature_FE_Sign", sep="/"), ".png"),
+       dpi = "retina")
+```
+
+## Speech
+
+### Local convergence
+
+```{r, include=FALSE}
+load(paste0(folder, "data.RData"))
+
+dat <- dat %>% 
+  filter(dyad %in% c("FXO","SGB", "TTY", "ZNV")) %>%
+  mutate(f0meanDiff = abs(turnf0mean - prevTurnf0mean),
+         f0medDiff = abs(turnf0med - prevTurnf0med),
+         f0sdDiff = abs(turnf0sd - prevTurnf0sd),
+         f0maxDiff = abs(turnf0max - prevTurnf0max)) %>% 
+  group_by(speaker, task) %>% 
+  filter(!duplicated(turn)) %>% 
+  mutate(stageTurn = turn / max(turn),
+         stage = ifelse(stageTurn <= 0.33, "beginning", ifelse(stageTurn >= 0.66, "ending", NA))) %>% 
+  ungroup() %>% 
+  filter(task == "D1")
+
+for(d in unique(dat$dyad)){
+  r <- cor.test(dat$f0medDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  p <- sprintf("%.4f", r$p.value)
+  cor <- sprintf("%.4f", r$estimate)
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0medDiff))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    labs(y = "Difference in f0 median",
+         x = "Time",
+         title = ifelse(cor>0 & p<0.05,
+                        paste0("Local Divergence, cor = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Convergence, cor = ", cor, " p = ", p),
+                               paste0("cor = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0med_local_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  r <- cor.test(dat$f0meanDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  p <- sprintf("%.4f", r$p.value)
+  cor <- sprintf("%.4f", r$estimate)
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0meanDiff))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    labs(y = "Difference in f0 mean",
+         x = "Time",
+         title = ifelse(cor>0 & p<0.05,
+                        paste0("Local Divergence, cor = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Convergence, cor = ", cor, " p = ", p),
+                               paste0("cor = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0mean_local_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  r <- cor.test(dat$f0maxDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  p <- sprintf("%.4f", r$p.value)
+  cor <- sprintf("%.4f", r$estimate)
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0maxDiff))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    labs(y = "Difference in f0 max",
+         x = "Time",
+         title = ifelse(cor>0 & p<0.05,
+                        paste0("Local Divergence, cor = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Convergence, cor = ", cor, " p = ", p),
+                               paste0("cor = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0max_local_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  r <- cor.test(dat$f0sdDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  p <- sprintf("%.4f", r$p.value)
+  cor <- sprintf("%.4f", r$estimate)
+  ggplot(dat %>% filter(dyad==d), aes(turn, f0sdDiff))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    labs(y = "Difference in f0 SD",
+         x = "Time",
+         title = ifelse(cor>0 & p<0.05,
+                        paste0("Local Divergence, cor = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Convergence, cor = ", cor, " p = ", p),
+                               paste0("cor = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0SD_local_", sep="/"), d, ".png"),
+         dpi = "retina")
+}
+```
+
+### Global convergence
+
+```{r, include=FALSE}
+# data set to analyze global-level convergence
+datSave <- dat
+
+datG <- data.frame(matrix(nrow=0, ncol=10))
+names(datG) <- c("speaker", "beginf0meanDiff", "beginf0medDiff", "beginf0sdDiff", "beginf0maxDiff", "endf0meanDiff", "endf0medDiff", "endf0sdDiff", "endf0maxDiff", "dyad")
+
+for(s in unique(dat$speaker)){
+  b <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="beginning", delete=="no") %>% 
+    select(speaker, f0meanDiff:f0maxDiff)
+  names(b)[2:5] <- paste0("begin", names(b[2:5]))
+  
+  e <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="ending", delete=="no") %>% 
+    select(f0meanDiff:f0maxDiff)
+  names(e) <- paste0("end", names(e))
+  
+  rd <- nrow(b) - nrow(e)
+  if(rd < 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(b)))
+    names(add) <- names(b)
+    add[,1] <- unique(b[,1])
+    b <- rbind(b, add)
+  }
+  if(rd > 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(e)))
+    names(add) <- names(e)
+    e <- rbind(e, add)
+  }
+  
+  d <- cbind(b, e) %>% 
+    mutate(dyad = substr(s, 1, 3))
+  datG <- rbind(datG, d)
+}
+```
+
+```{r, include=FALSE}
+for(d in unique(datG$dyad)){
+  test <- t.test(datG$beginf0meanDiff[datG$dyad==d], datG$endf0meanDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- sprintf("%.4f", test$p.value)
+  est <- sprintf("%.4f", test$estimate)
+  ggplot(dat %>% filter(dyad==d, !is.na(stage)), aes(stage, f0meanDiff))+
+    geom_boxplot()+
+    labs(y = "Difference in f0 mean",
+         x = "Time",
+         title = ifelse(est>0 & p<0.05,
+                        paste0("Global Convergence, estimate = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Divergence, estimate = ", cor, " p = ", p),
+                               paste0("estimate = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0mean_global_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  test <- t.test(datG$beginf0medDiff[datG$dyad==d], datG$endf0medDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- sprintf("%.4f", test$p.value)
+  est <- sprintf("%.4f", test$estimate)
+  ggplot(dat %>% filter(dyad==d, !is.na(stage)), aes(stage, f0medDiff))+
+    geom_boxplot()+
+    labs(y = "Difference in f0 median",
+         x = "Time",
+         title = ifelse(est>0 & p<0.05,
+                        paste0("Global Convergence, estimate = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Divergence, estimate = ", cor, " p = ", p),
+                               paste0("estimate = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0med_global_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  test <- t.test(datG$beginf0maxDiff[datG$dyad==d], datG$endf0maxDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- sprintf("%.4f", test$p.value)
+  est <- sprintf("%.4f", test$estimate)
+  ggplot(dat %>% filter(dyad==d, !is.na(stage)), aes(stage, f0maxDiff))+
+    geom_boxplot()+
+    labs(y = "Difference in f0 max",
+         x = "Time",
+         title = ifelse(est>0 & p<0.05,
+                        paste0("Global Convergence, estimate = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Divergence, estimate = ", cor, " p = ", p),
+                               paste0("estimate = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0max_global_", sep="/"), d, ".png"),
+         dpi = "retina")
+  
+  test <- t.test(datG$beginf0sdDiff[datG$dyad==d], datG$endf0sdDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- sprintf("%.4f", test$p.value)
+  est <- sprintf("%.4f", test$estimate)
+  ggplot(dat %>% filter(dyad==d, !is.na(stage)), aes(stage, f0sdDiff))+
+    geom_boxplot()+
+    labs(y = "Difference in f0 SD",
+         x = "Time",
+         title = ifelse(est>0 & p<0.05,
+                        paste0("Global Convergence, estimate = ", cor, " p = ", p),
+                        ifelse(cor<0 & p<0.05,
+                               paste0("Local Divergence, estimate = ", cor, " p = ", p),
+                               paste0("estimate = ", cor, " p = ", p))))
+  ggsave(filename = paste0(paste(here::here(), "figures", "prez", "f0sd_global_", sep="/"), d, ".png"),
+         dpi = "retina")
+}
+```
+
+## Other figures
+
+```{r}
+load(paste0(here::here(), "/data/metadata-clean.RData"))
+
+ggplot(m, aes(age))+
+  geom_histogram()+
+  theme(axis.title=element_text(size=25),
+        axis.text=element_text(size=24))
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "age_hist", sep="/"), ".png"))
+```
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

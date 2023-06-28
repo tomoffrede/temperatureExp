@@ -48,8 +48,51 @@ dat <- dat %>%
   ungroup() %>% 
   filter(task == "D1")
 
+datSave <- dat
+
 effD <- data.frame(matrix(nrow=0, ncol=7))
 names(effD) <- c("dyad", "condition", "type", "feature", "direction", "effect", "pORt")
+
+effS <- data.frame(matrix(nrow=0, ncol=7))
+names(effS) <- c("speaker", "condition", "type", "feature", "direction", "effect", "pORt")
+```
+
+```{r, include=FALSE}
+# data set to analyze global-level convergence
+
+datG <- data.frame(matrix(nrow=0, ncol=10))
+names(datG) <- c("speaker", "beginf0meanDiff", "beginf0medDiff", "beginf0sdDiff", "beginf0maxDiff", "endf0meanDiff", "endf0medDiff", "endf0sdDiff", "endf0maxDiff", "dyad")
+
+for(s in unique(dat$speaker)){
+  b <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="beginning", delete=="no") %>% 
+    select(speaker, f0meanDiff:f0maxDiff)
+  names(b)[2:5] <- paste0("begin", names(b[2:5]))
+  
+  e <- datSave %>%
+    mutate(delete = ifelse(is.na(f0meanDiff) & is.na(f0medDiff) & is.na(f0sdDiff) & is.na(f0maxDiff), "yes", "no")) %>% 
+    filter(speaker==s, stage=="ending", delete=="no") %>% 
+    select(f0meanDiff:f0maxDiff)
+  names(e) <- paste0("end", names(e))
+  
+  rd <- nrow(b) - nrow(e)
+  if(rd < 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(b)))
+    names(add) <- names(b)
+    add[,1] <- unique(b[,1])
+    b <- rbind(b, add)
+  }
+  if(rd > 0){
+    add <- data.frame(matrix(nrow=abs(rd), ncol=ncol(e)))
+    names(add) <- names(e)
+    e <- rbind(e, add)
+  }
+  
+  d <- cbind(b, e) %>% 
+    mutate(dyad = substr(s, 1, 3))
+  datG <- rbind(datG, d)
+}
 ```
 
 ### Turn-level Sychrony: Correlations
@@ -57,71 +100,71 @@ names(effD) <- c("dyad", "condition", "type", "feature", "direction", "effect", 
 ```{r}
 for(d in unique(dat$dyad)){
   r <- cor.test(dat$turnf0mean[dat$dyad==d], dat$prevTurnf0mean[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0mean, turnf0mean, size=turn))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0mean, turnf0mean, size=turn))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0mean/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnSync",
-                           "f0mean",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0mean",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
   r <- cor.test(dat$turnf0med[dat$dyad==d], dat$prevTurnf0med[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0med, turnf0med, size=turn))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0med, turnf0med, size=turn))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0med/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnSync",
-                           "f0med",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0med",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
   r <- cor.test(dat$turnf0sd[dat$dyad==d], dat$prevTurnf0sd[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0sd, turnf0sd, size=turn))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0sd, turnf0sd, size=turn))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0sd/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnSync",
-                           "f0sd",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0sd",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
   r <- cor.test(dat$turnf0max[dat$dyad==d], dat$prevTurnf0max[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(prevTurnf0max, turnf0max, size=turn))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(prevTurnf0max, turnf0max, size=turn))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level sync/f0max/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnSync",
-                           "f0max",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnSync",
+                             "f0max",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
 }
 
@@ -132,71 +175,71 @@ for(d in unique(dat$dyad)){
 ```{r}
 for(d in unique(dat$dyad)){
   r <- cor.test(dat$f0meanDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(turn, f0meanDiff))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0meanDiff))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0mean/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnConv",
-                           "f0mean",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0mean",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
-   r <- cor.test(dat$f0medDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(turn, f0medDiff))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", d, ".png"),
-         dpi = "retina")
+  r <- cor.test(dat$f0medDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0medDiff))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0med/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnConv",
-                           "f0med",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0med",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
   r <- cor.test(dat$f0sdDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(turn, f0sdDiff))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", d, ".png"),
-         dpi = "retina")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0sdDiff))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0sd/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnConv",
-                           "f0sd",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0sd",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
   
-   r <- cor.test(dat$f0maxDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
-  ggplot(dat %>% filter(dyad==d), aes(turn, f0maxDiff))+
-           geom_point()+
-           geom_smooth(method="lm")+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", d, ".png"),
-         dpi = "retina")
+  r <- cor.test(dat$f0maxDiff[dat$dyad==d], dat$turn[dat$dyad==d], method="pearson")
+  # ggplot(dat %>% filter(dyad==d), aes(turn, f0maxDiff))+
+  #          geom_point()+
+  #          geom_smooth(method="lm")+
+  #   ggtitle(paste0(dat$condition[dat$dyad==d], " - r = ", r$estimate, ", p = ", r$p.value))
+  # ggsave(filename = paste0(here::here(), "/figures/individualEffects/turn-level conv/f0max/", d, ".png"),
+  #        dpi = "retina")
   if(r$p.value < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "turnConv",
-                           "f0max",
-                           ifelse(r$estimate < 0, "negative", "positive"),
-                           r$estimate,
-                           r$p.value)
+                             unique(dat$condition[dat$dyad==d]),
+                             "turnConv",
+                             "f0max",
+                             ifelse(r$estimate < 0, "negative", "positive"),
+                             r$estimate,
+                             r$p.value)
   }
 }
 
@@ -212,77 +255,89 @@ for(d in unique(dat$dyad)){
 dat <- dat %>% 
   filter(!is.na(stage))
 
-for(d in unique(dat$dyad)){
-  c <- tidy(lmer(f0meanDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+for(d in unique(datG$dyad)){
+  test <- t.test(datG$beginf0meanDiff[datG$dyad==d], datG$endf0meanDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0meanDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0meanDiff))+
            geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0mean/", d, ".png"),
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0mean/", d, ".png"),
          dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "globalConv",
-                           "f0mean",
-                           ifelse(est < 0, "negative", "positive"),
-                           est,
-                           t)
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0mean",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             p)
   }
   
-  c <- tidy(lmer(f0medDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+  test <- t.test(datG$beginf0medDiff[datG$dyad==d], datG$endf0medDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0medDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0medDiff))+
            geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0med/", d, ".png"),
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0med/", d, ".png"),
          dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "globalConv",
-                           "f0med",
-                           ifelse(est < 0, "negative", "positive"),
-                           est,
-                           t)
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0med",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             p)
   }
   
-  c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+    test <- t.test(datG$beginf0maxDiff[datG$dyad==d], datG$endf0maxDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0maxDiff))+
            geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0max/", d, ".png"),
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0max/", d, ".png"),
          dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "globalConv",
-                           "f0max",
-                           ifelse(est < 0, "negative", "positive"),
-                           est,
-                           t)
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0max",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                            p)
   }
   
-  c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
-  est <- c$estimate[2]
-  t <- c$statistic[2]
+    test <- t.test(datG$beginf0sdDiff[datG$dyad==d], datG$endf0sdDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  p <- test$p.value
+  est <- test$estimate
+  # c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
+  # est <- c$estimate[2]
+  # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0sdDiff))+
            geom_boxplot()+
-    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", t = ", t))
-  ggsave(filename = paste0(here::here(), "/figures/individualEffects/global-level conv/f0sd/", d, ".png"),
+    ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
+  ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0sd/", d, ".png"),
          dpi = "retina")
-  if(t > 2){
+  if(p < 0.05){
     effS[nrow(effS)+1,] <- c(d,
-                           unique(dat$condition[dat$dyad==d]),
-                           "globalConv",
-                           "f0sd",
-                           ifelse(est < 0, "negative", "positive"),
-                           est,
-                           t)
+                             unique(dat$condition[dat$dyad==d]),
+                             "globalConv",
+                             "f0sd",
+                             ifelse(est < 0, "negative", "positive"),
+                             est,
+                             p)
   }
 }
 ```
@@ -291,7 +346,7 @@ for(d in unique(dat$dyad)){
 effSave <- effS
 
 effS <- effSave %>% 
-  mutate_at(c("dyad", "condition", "direction", "type", "feature"), as.factor) %>% 
+  mutate_at(c("speaker", "condition", "direction", "type", "feature"), as.factor) %>% 
   mutate_at(c("effect", "pORt"), as.numeric) %>% 
   group_by(dyad) %>%
   filter(n()>2) %>% 

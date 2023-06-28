@@ -32,7 +32,8 @@ table(m$gender)
 ```{r}
 table(m$age)
 summary(m$age)
-sd(m$age)  
+sd(m$age)
+hist(m$age)
 ```
 
 ## L1
