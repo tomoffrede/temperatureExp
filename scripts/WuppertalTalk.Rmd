@@ -1106,7 +1106,13 @@ ggplot(m, aes(age))+
   geom_histogram()+
   theme(axis.title=element_text(size=25),
         axis.text=element_text(size=24))
-ggsave(filename = paste0(paste(here::here(), "figures", "prez", "age_hist", sep="/"), ".png"))
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "age_all_hist", sep="/"), ".png"))
+
+ggplot(d %>% filter(!duplicated(speaker)), aes(age))+
+  geom_histogram()+
+  theme(axis.title=element_text(size=25),
+        axis.text=element_text(size=24))
+ggsave(filename = paste0(paste(here::here(), "figures", "prez", "age_speakers_hist", sep="/"), ".png"))
 ```
 
 

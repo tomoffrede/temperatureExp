@@ -3,25 +3,19 @@
 
 library(tidyverse)
 
-folderTXT <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/wuppertal/"
+folderTXT <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/TempData/Extraction-Official/"
 `%!in%` <- Negate(`%in%`)
 
 files <- list.files(folderTXT, "\\.txt")
 
 dat <- data.frame(matrix(nrow=0, ncol=4))
-names(dat) <- c("speaker", "frame", "ROI", "temperature")
+names(dat) <- c("speaker", "timeStamp", "ROI", "temperature")
 
-# f <- files[[1]]
-# what <- data.frame(matrix(nrow=0, ncol=2))
-# names(what) <- c("file", "ok")
-# for(f in files){
-#   a <- read.table(paste0(folderTXT, f), sep = "\t", header=TRUE, fileEncoding = readr::guess_encoding(paste0(folderTXT, f))$encoding[1])
-#   what[nrow(what)+1,] <- c(f, ifelse(nrow(a)>0, "ok!", "NO!!"))
-# }
-# g <- readLines(paste0(folderTXT,gf))
-# b <- readLines(paste0(folderTXT,bf))
 
 for(f in files){
+  lines <- readLines(paste0(folderTXT, f))
+  timeStamp <- substr(str_split(lines[6], fixed("\t"))[[1]][[2]], 1, 8) # splits the line that contains the time stamp and gets the 2nd value (i.e. the time stamp), and then save only 1st to 8th characters, i.e. no milisecond info
+  
   a <- read.table(paste0(folderTXT, f), sep = "\t", header=TRUE, fileEncoding = readr::guess_encoding(paste0(folderTXT, f))$encoding[1])
   a <- a[,grepl("C", names(a)) & !grepl("px", names(a))]
   names(a) <- gsub("\\.\\.\\.\\.C\\.", "", names(a))
