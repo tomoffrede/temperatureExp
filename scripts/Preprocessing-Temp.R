@@ -13,15 +13,28 @@ onlyDiapix <- c("AML", "FWR")
 dat <- data.frame(matrix(nrow=0, ncol=5))
 names(dat) <- c("speaker", "timeStamp", "ROI", "temperature", "task")
 
+timeControl <- data.frame(matrix(nrow=0, ncol=2))
+names(timeControl) <- c("dyad", "timeStamp")
+
 for(f in files){
   lines <- readLines(paste0(folderTXT, f))
   timeStamp <- substr(str_split(lines[6], fixed("\t"))[[1]][[2]], 1, 8) # splits the line that contains the time stamp and gets the 2nd value (i.e. the time stamp), and then save only 1st to 8th characters, i.e. no milisecond info
+  
+  # apparently for some of the video frames, I saved 2 txt files for the same frame (meaning I forgot I'd already done a given frame and drew the ROIs again)
+  # so here, make sure to save only one file per frame
+  if(timeStamp %in% timeControl$timeStamp){
+    if(paste0(substr(f, 1, 3), timeStamp) %in% paste0(timeControl$dyad, timeControl$timeStamp)){
+      next
+    }
+  }
+    
+  timeControl[nrow(timeControl)+1,] <- c(substr(f, 1, 3), timeStamp)
   if(substr(f, 1, 3) %in% onlyDiapix){
     task <- "Diapix"
   } else{
     task <- ifelse(grepl("1", str_split(lines[3], fixed("\t"))[[1]][[2]]), # get the name of the thermal video file and check if it contains a "1" or not, which indicates if it was recorded during the Lists or Diapix task
-                        "Diapix",
-                        "Lists")}
+                   "Diapix",
+                   "Lists")}
   
   writeLines(lines[21:length(lines)], paste0(folderNew, f))
   
@@ -34,7 +47,7 @@ for(f in files){
   names(tempA) <- c("speaker", "timeStamp", "ROI", "temperature")
   tempB <- data.frame(matrix(nrow=0, ncol=4))
   names(tempB) <- c("speaker", "timeStamp", "ROI", "temperature")
-
+  
   for(i in 1:ncol(a)){
     sp <- paste0(substr(f, 1, 4), substr(names(a[i]), nchar(names(a[i])), nchar(names(a[i]))))
     
@@ -98,7 +111,7 @@ dat <- dat |>
          time = as.numeric((timeStamp - startTime)/60)) |> # store passage of time in minutes
   ungroup() |> 
   select(-startTime)
-  
+
 # Join metadata (which was cleaned in Preprocessing-Speech):
 
 load(paste0(here::here(), "/data/metadata-clean.RData"))
@@ -118,26 +131,14 @@ dat <- dat |>
 dat0 <- dat
 # dat <- dat0
 
-for(s in unique(dat$speaker)){
-  for(t in dat$time){
-    for(r in dat$ROI){
-      currentTemp <- as.numeric(dat$temperature[dat$speaker==s &
-                                                  dat$time==t &
-                                                  dat$ROI==r])
-      otherTemp <- as.numeric(dat$temperature[dat$speaker != s &
-                                                substr(dat$speaker, 1, 3) == substr(s, 1, 3) &
-                                                dat$time==t &
-                                                dat$ROI==r])
-      if(!purrr::is_empty(currentTemp)){
-        if(!any(is.na(currentTemp))){
-          if(!purrr::is_empty(otherTemp)){
-            if(!any(is.na(otherTemp))){
-              dat$tempDiff[dat$speaker==s & dat$time==t & dat$ROI==r] <- as.numeric(abs(currentTemp - otherTemp))
-            }
-          }
-        }
-      }
-    }
+for(i in 1:nrow(dat)){
+  otherTemp <- dat$temperature[dat$speaker!=dat$speaker[i] &
+                                 substr(dat$speaker, 1, 3) == substr(dat$speaker[i], 1, 3) &
+                                 dat$time==dat$time[i] &
+                                 dat$task==dat$task[i] &
+                                 dat$ROI==dat$ROI[i]]
+  if(!purrr::is_empty(otherTemp)){
+    dat$tempDiff[i] <- as.numeric(abs(dat$temperature[i] - otherTemp))
   }
 }
 

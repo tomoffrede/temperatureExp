@@ -68,3 +68,28 @@ for(f in files){
 
 ####
 
+# first loop I had written to calculate temperature difference between speakers per ROI per time stamp
+# (now I wrote something much simpler and quicker)
+
+# for(s in unique(dat$speaker)){
+#   for(t in dat$time){
+#     for(r in dat$ROI){
+#       currentTemp <- as.numeric(dat$temperature[dat$speaker==s &
+#                                                   dat$time==t &
+#                                                   dat$ROI==r])
+#       otherTemp <- as.numeric(dat$temperature[dat$speaker != s &
+#                                                 substr(dat$speaker, 1, 3) == substr(s, 1, 3) &
+#                                                 dat$time==t &
+#                                                 dat$ROI==r])
+#       if(!purrr::is_empty(currentTemp)){
+#         if(!any(is.na(currentTemp))){
+#           if(!purrr::is_empty(otherTemp)){
+#             if(!any(is.na(otherTemp))){
+#               dat$tempDiff[dat$speaker==s & dat$time==t & dat$ROI==r] <- as.numeric(abs(currentTemp - otherTemp))
+#             }
+#           }
+#         }
+#       }
+#     }
+#   }
+# }
