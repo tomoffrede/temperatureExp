@@ -135,8 +135,8 @@ dat <- f0 %>%
   ungroup() %>% 
   mutate(turnDur = turnOffset - turnOnset,
          ipuDur = ipuOffset - ipuOnset,
-         qual = ifelse(grepl("D1|D2", file), "bad", "good"),
-         task = substr(file, 5, 6),
+         # qual = ifelse(grepl("D1|D2", file), "bad", "good"),
+         task = case_when(grepl("-L", file) ~ "Lists", grepl("-D", file) ~ "Diapix"),
          order = ifelse(grepl("L1", task), 1, ifelse(grepl("L2", task), 2, ifelse(grepl("L3", task), 3, ifelse(grepl("D1", task), 4, 5)))),
          dyad = substr(file, 1, 3),
          f0mean = ifelse(is.nan(f0mean), NA, f0mean),
@@ -156,7 +156,7 @@ dat <- f0 %>%
          prevTurnf0sd = NA,
          prevTurnf0max = NA)
 
-# determine who is the first speaker in each, file
+# determine who is the first speaker in each file
 for(f in unique(dat$file)){
   dat$firstSp[dat$file==f] <- unique(as.character(dat$speaker[dat$file==f & dat$turnOnset == min(dat$turnOnset[dat$file==f])]))
 }
@@ -238,7 +238,6 @@ for(i in 1:nrow(dat)){
   }
 }
 
-# 
 # dat0 <- data.frame(matrix(nrow=0, ncol=5))
 # names(dat0) <- c("speaker", "task", "turn", "IPU", "overallTurn")
 # 
@@ -261,6 +260,7 @@ for(i in 1:nrow(dat)){
 # }
 # 
 # dat <- merge(dat, dat0, by=c("speaker", "task", "turn", "IPU"))
+
 dat <- dat %>% 
   group_by(speaker) %>% 
   mutate(prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE),

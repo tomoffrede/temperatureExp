@@ -7,12 +7,10 @@ library(tuneR)
 library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
-folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllForPreprocessing/"
-folderAllTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids/"
+folder2 <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllTextGrids-manualAnnotationOnly/"
 folderAllW <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllWav/"
-folderAllWF <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/TestF0Extraction/AllWAV/"
 dyads <- c("AML", "FWR", "FXO", "HAG", "HBR", "HUJ", "KDA", "KPB", "MJG", "NLO", "OAL", "OXQ", "QRT", "SGB", "SUK", "TTN", "TTY", "VDE", "ZNV")
-dyads <- c(c("HAG", "ZNV", "AML", "HUJ", "KPB"))
+# dyads <- c(c("HAG", "ZNV", "AML", "HUJ", "KPB"))
 
 # Copy all files from one folder to another
 
@@ -23,13 +21,23 @@ for(o in og){
             to = paste0(folder2, o))
 }
 
-
+folderBackUp <- paste0(folder, "backUp-oldPreprocessing-canDeleteLater/")
+for(d in dyads){
+  currentFolder <- paste0(folder, d, "/")
+  files <- list.files(currentFolder)
+  files <- files[!grepl("\\.wav", files) & !grepl("Register", files) & !grepl("unused", files)]
+  for(f in files){
+    file.copy(from = paste0(currentFolder, f),
+              to = paste0(folderBackUp, f))
+    file.remove(paste0(currentFolder, f))
+  }
+}
 
 # # Create folders
 # 
-# for(d in dyads){
-#   dir.create(paste0(folder, d))
-# }
+for(d in dyads){
+  dir.create(paste0(folder, d, "/"))
+}
 
 # # Copy files from a general folder into their appropriate folder
 

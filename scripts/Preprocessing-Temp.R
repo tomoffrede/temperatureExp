@@ -103,25 +103,26 @@ dat <- dat |>
     ROI=="M" ~ "Mouth",
     ROI=="C" ~ "Cheeks",
     ROI=="F" ~ "Forehead"
-  )) |> 
-  mutate_at(c("speaker", "ROI", "task"), as.factor) |>
+  ),
+  dyad = substr(speaker, 1, 3)) |> 
+  mutate_at(c("speaker", "ROI", "task", "dyad"), as.factor) |>
   mutate_at(c("temperature"), as.numeric) |> 
-  group_by(task, speaker, ROI) |> 
+  group_by(speaker, ROI) |> 
   mutate(startTime = min(timeStamp),
          time = as.numeric((timeStamp - startTime)/60)) |> # store passage of time in minutes
   ungroup() |> 
-  select(-startTime)
+  select(-c(startTime, timeStamp))
 
 # Join metadata (which was cleaned in Preprocessing-Speech):
 
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 
 m <- m |> 
-  pivot_longer(realTempPre:realTempPost, names_to = "stage", values_to = "realTemp") |> 
+  pivot_longer(realTempPre:realTempPost, names_to = "stage", values_to = "roomTemp") |> 
   mutate(stage = ifelse(stage == "realTempPre", "beginning", ifelse(stage == "realTempDuring", "middle", "ending")))
 
 dat <- dat |> 
-  group_by(speaker, task) |> 
+  group_by(speaker) |> 
   mutate(stageTime = time / max(time),
          stage = ifelse(stageTime <= 0.33, "beginning", ifelse(stageTime >= 0.66, "ending", "middle"))) |> 
   ungroup() |> 

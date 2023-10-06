@@ -1,0 +1,240 @@
+---
+title: "Analysis - Temperature"
+author: "Tom Offrede"
+output:
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(lmerTest)
+
+load(paste0(here::here(), "/data/tempData.RData"))
+folderFig1 <- paste0(here::here(), "/figures/temperature/tempChange/")
+folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
+```
+
+# Notes about models and data
+
+* In the models of temperature change across time, I originally wanted to add `room temperature` as a predictor to account for the increasing room temperature. However, there is high collinearity between `room temperature` and `time`, so the models don't make sense. Hence, only `time` is kept.
+
+* There are 2 conditions: `close`, where in the first task of the experiment the participants talked about increasingly intimate questions (adapted from the Relationship Closeness Induction Task), and `impersonal`, where they talked about impersonal questions.
+
+# Individual plots
+
+See folder: R project temperatureExp > figures > temperature > tempChange OR convergence
+
+```{r}
+# for(roi in unique(dat$ROI)){
+#   ggplot(dat |> filter(ROI==roi), aes(time, temperature, color=speaker))+
+#     geom_point()+
+#     geom_smooth(method="lm")+
+#     facet_wrap(~dyad, scales = "free_x")+
+#     ggtitle(roi)
+#   ggsave(paste0(folderFig1, roi, ".png"), width=3000, height=2600, units = "px")
+#   
+#   for(con in unique(dat$condition)){
+#     ggplot(dat |> filter(ROI==roi, condition==con), aes(time, temperature, color=speaker))+
+#     geom_point()+
+#     geom_smooth(method="lm")+
+#     facet_wrap(~dyad, scales = "free_x")+
+#     ggtitle(paste(roi, "-", con, "condition"))
+#   ggsave(paste0(folderFig1, "/", con, "/", roi, ".png"), width=3000, height=2600, units = "px")
+#   }
+# }
+```
+
+```{r}
+# for(roi in unique(dat$ROI)){
+#   ggplot(dat |> filter(ROI==roi, grepl("-A", speaker)), aes(time, tempDiff))+
+#     geom_point()+
+#     geom_smooth(method="lm")+
+#     facet_wrap(~dyad, scales = "free_x")+
+#     ggtitle(roi)
+#   ggsave(paste0(folderFig2, roi, ".png"), width=3000, height=2600, units = "px")
+#   
+#   for(con in unique(dat$condition)){
+#     ggplot(dat |> filter(ROI==roi, grepl("-A", speaker), condition==con), aes(time, tempDiff))+
+#     geom_point()+
+#     geom_smooth(method="lm")+
+#     facet_wrap(~dyad, scales = "free_x")+
+#     ggtitle(paste(roi, "-", con, "condition"))
+#   ggsave(paste0(folderFig2, "/", con, "/", roi, ".png"), width=3000, height=2600, units = "px")
+#   }
+# }
+```
+
+# Temperature change across time and across conditions
+
+## Nose
+
+Nose got warmer across time, no difference between conditions.
+
+Preferred model: `temperature ~ time + (1+time|speaker)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Nose"), aes(time, temperature))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(temperature ~ time + (time||speaker) , dat |> filter(ROI=="Nose")))
+
+summary(m1 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker), dat |> filter(ROI=="Nose")))
+
+anova(m0, m1)
+```
+
+## Forehead
+
+Forehead got warmer across time, no difference between conditions.
+
+Preferred model: `(temperature ~ time + (1+time|speaker)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Forehead"), aes(time, temperature))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+
+anova(m0, m1)
+```
+
+## Eyes
+
+Eyes got warmer across time, no difference between conditions.
+
+Preferred model: `(temperature ~ time + (1+time|speaker)`
+
+
+```{r}
+ggplot(dat |> filter(ROI=="Eyes"), aes(time, temperature))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Eyes")))
+
+anova(m0, m1)
+```
+
+## Cheeks
+
+Cheeks did not change temperature.
+
+Preferred model: `(temperature ~ time + (1+time|speaker)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Cheeks"), aes(time, temperature))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+
+anova(m0, m1)
+```
+
+# Temperature difference across time (convergence)
+
+**There was no robust convergence or divergence in any ROI.** Although there seemed to be a trend in some ROIs, the effect disappears completely when we add random slopes to the models.
+
+## Nose
+
+No con-/divergence in nose temperature.
+
+Preferred model: `tempDiff ~ time + (1+time|dyad)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Nose"), aes(time, tempDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
+
+anova(m0, m1)
+```
+
+## Forehead
+
+No con-/divergence in forehead temperature.
+
+Preferred model: `tempDiff ~ time + (1+time|dyad)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Forehead"), aes(time, tempDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
+
+anova(m0, m1)
+```
+
+## Eyes
+
+No con-/divergence in eye temperature.
+
+Preferred model: `tempDiff ~ time + (1+time|dyad)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Eyes"), aes(time, tempDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
+
+anova(m0, m1)
+```
+
+## Cheeks
+
+No con-/divergence in cheek temperature.
+
+Preferred model: `tempDiff ~ time + (1+time|dyad)`
+
+```{r}
+ggplot(dat |> filter(ROI=="Cheeks"), aes(time, tempDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+```
+
+```{r}
+summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
+
+anova(m0, m1)
+```
