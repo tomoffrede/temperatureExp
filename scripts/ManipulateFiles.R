@@ -33,6 +33,18 @@ for(d in dyads){
   }
 }
 
+# other option
+
+for(d in dyads){
+  currentFolder <- paste0(folder, d, "/")
+  newFolder <- paste0(folder, "processed/", d, "/")
+  files <- list.files(currentFolder, "\\.wav")
+  for(f in files){
+    file.copy(from = paste0(currentFolder, f),
+              to = paste0(newFolder, f))
+  }
+}
+
 # # Create folders
 # 
 for(d in dyads){

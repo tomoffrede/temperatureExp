@@ -101,7 +101,14 @@ for(i in 1:nrow(files)){
                                    turnOnset, turnOffset, startIPU, endIPU,
                                    NA, NA)
             }
-            if(all(is.na(f))){ipuCount <- ipuCount - 1}
+            if(all(is.na(f))){
+              # if there are no valid f0 values in the IPU, turn back IPU count
+              ipuCount <- ipuCount - 1
+              # and if there were no other IPUs in the current turn, also turn back the turn count
+              if(ipuCount == 0){
+                turnCount <- turnCount - 1
+              }
+            }
           }
         }
       }
@@ -266,9 +273,11 @@ dat <- dat %>%
   mutate(prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE),
          prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE),
          prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
+         prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
          prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
          prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
-         prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE)) %>% 
+         prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
+         prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)) %>% 
   ungroup()
 
 save(dat, file=gsub("AllForPreprocessing/", "data-noMetadata.RData", folderAll))
@@ -341,6 +350,7 @@ save(m, file=paste0(folderData, "metadata-clean.RData"))
 dat0 <- dat # in case we want to check it before it gets merged
 
 dat <- merge(dat, m, by="speaker")
-save(dat, file=gsub("AllForPreprocessing/", "data.RData", folderAll))
+
+save(dat, file=paste0(folderData, "speechData.RData"))
 
 # Create a dataset that has only the f0 information from beginning and ending stages of 

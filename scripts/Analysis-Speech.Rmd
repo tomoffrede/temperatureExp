@@ -15,14 +15,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, include=FALSE}
 library(tidyverse)
-library(lme4)
+library(lmerTest)
 library(broom.mixed)
 
-folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
+folder <- paste0(here::here(), "/data/")
 
-load(paste0(folder, "data.RData"))
-
-names(dat)
+load(paste0(folder, "speechData.RData"))
 ```
 
 # Important
@@ -30,6 +28,71 @@ names(dat)
 **Order** refers to the section of the experiment (in this order: List of questions 1, List 2, List 3, Diapix 1, Diapix 2). (Not everyone did Diapix 2).
 
 **Turn** refers to the participant's turn within a section.
+
+
+# Checking individual effects (preliminary)
+
+```{r}
+effR <- data.frame(matrix(nrow=0, ncol=6))
+names(effR) <- c("speaker", "task", "feature", "direction", "estimate", "p")
+
+for(dy in unique(dat$speaker)){
+  d <- dat |> filter(speaker==dy)
+  for(t in unique(dat$task)){
+    if(nrow(d |> filter(task==t)) > 1){
+      m <- tidy(lm(f0med ~ prevf0medC : turn, d |> filter(task==t)))
+      effR[nrow(effR)+1,] <- c(dy, t, "f0median",
+                             ifelse(m$estimate[2] > 0, "convergence", "divergence"),
+                             as.numeric(m$estimate[2]),
+                             m$p.value[2])
+    }  
+  }
+  
+  
+  for(t in unique(dat$task)){
+    if(nrow(d |> filter(task==t)) > 1){
+      m <- tidy(lm(f0mean ~ prevf0meanC : turn, d |> filter(task==t)))
+      effR[nrow(effR)+1,] <- c(dy, t, "f0mean",
+                             ifelse(m$estimate[2] > 0, "convergence", "divergence"),
+                             as.numeric(m$estimate[2]),
+                             m$p.value[2])
+    }
+  }
+  
+  for(t in unique(dat$task)){
+    if(nrow(d |> filter(task==t)) > 1){
+      m <- tidy(lm(f0sd ~ prevf0sdC : turn, d |> filter(task==t)))
+      effR[nrow(effR)+1,] <- c(dy, t, "f0SD",
+                             ifelse(m$estimate[2] > 0, "convergence", "divergence"),
+                             as.numeric(m$estimate[2]),
+                             m$p.value[2])
+    }
+  }
+  
+  for(t in unique(dat$task)){
+    if(nrow(d |> filter(task==t)) > 1){
+      m <- tidy(lm(f0max ~ prevf0maxC : turn, d |> filter(task==t)))
+      effR[nrow(effR)+1,] <- c(dy, t, "f0max",
+                             ifelse(m$estimate[2] > 0, "convergence", "divergence"),
+                             as.numeric(m$estimate[2]),
+                             m$p.value[2])
+    }
+  }
+  
+}
+effR <- effR |> 
+  mutate_at("p", as.numeric) |> 
+  mutate(sign=ifelse(p < 0.05, "*", NA),
+         signBon = ifelse(p < 0.05/n(), "*", NA))
+```
+
+```{r}
+effR <- data.frame(matrix(nrow=0, ncol=6))
+names(effR) <- c("speaker", "task", "feature", "direction", "estimate", "p")
+
+for()
+```
+
 
 # Individual dyads, only Diapix
 
@@ -46,7 +109,7 @@ dat <- dat %>%
   mutate(stageTurn = turn / max(turn),
          stage = ifelse(stageTurn <= 0.33, "beginning", ifelse(stageTurn >= 0.66, "ending", NA))) %>% 
   ungroup() %>% 
-  filter(task == "D1")
+  filter(task == "Lists")
 
 datSave <- dat
 
@@ -263,7 +326,7 @@ for(d in unique(datG$dyad)){
   # est <- c$estimate[2]
   # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0meanDiff))+
-           geom_boxplot()+
+    geom_boxplot()+
     ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
   ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0mean/", d, ".png"),
          dpi = "retina")
@@ -284,7 +347,7 @@ for(d in unique(datG$dyad)){
   # est <- c$estimate[2]
   # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0medDiff))+
-           geom_boxplot()+
+    geom_boxplot()+
     ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
   ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0med/", d, ".png"),
          dpi = "retina")
@@ -298,14 +361,14 @@ for(d in unique(datG$dyad)){
                              p)
   }
   
-    test <- t.test(datG$beginf0maxDiff[datG$dyad==d], datG$endf0maxDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  test <- t.test(datG$beginf0maxDiff[datG$dyad==d], datG$endf0maxDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
   p <- test$p.value
   est <- test$estimate
   # c <- tidy(lmer(f0maxDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
   # est <- c$estimate[2]
   # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0maxDiff))+
-           geom_boxplot()+
+    geom_boxplot()+
     ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
   ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0max/", d, ".png"),
          dpi = "retina")
@@ -316,17 +379,17 @@ for(d in unique(datG$dyad)){
                              "f0max",
                              ifelse(est < 0, "negative", "positive"),
                              est,
-                            p)
+                             p)
   }
   
-    test <- t.test(datG$beginf0sdDiff[datG$dyad==d], datG$endf0sdDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
+  test <- t.test(datG$beginf0sdDiff[datG$dyad==d], datG$endf0sdDiff[datG$dyad==d], paired=TRUE, alternative="two.sided")
   p <- test$p.value
   est <- test$estimate
   # c <- tidy(lmer(f0sdDiff ~ stage + (1|speaker), dat %>% filter(dyad==d)))
   # est <- c$estimate[2]
   # t <- c$statistic[2]
   ggplot(dat %>% filter(dyad==d), aes(stage, f0sdDiff))+
-           geom_boxplot()+
+    geom_boxplot()+
     ggtitle(paste0(dat$condition[dat$dyad==d], " - est = ", est, ", p = ", p))
   ggsave(filename = paste0(here::here(), "/figures/speech/dyads/global-level conv/f0sd/", d, ".png"),
          dpi = "retina")
@@ -351,8 +414,7 @@ effS <- effSave %>%
   group_by(dyad) %>%
   filter(n()>2) %>% 
   ungroup() %>% 
-  mutate(type = ifelse(type == "globalProx", "globalConv", as.character(type))) %>% 
-  filter(type != "turnSync")
+  mutate(type = ifelse(type == "globalProx", "globalConv", as.character(type)))
 ```
 
 
