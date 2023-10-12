@@ -9,35 +9,46 @@ library(rPraat)
 
 folder <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/"
 folderData <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/temperatureExp/data/"
-folderAll <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/AllForPreprocessing/"
+folderAll <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/processed/"
 folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 `%!in%` <- Negate(`%in%`)
 
-TXT <- list.files(folderAll, "\\.txt")
+TXT <- list.files(folderAll, "\\.txt", recursive = TRUE)
 TXT <- TXT[!grepl("Register", TXT)]
 # TGv <- list.files(folderAll, "OverlapSp.TextGrid") # v for vector
-TGv <- list.files(folderAll, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$") # v for vector
+TGv <- list.files(folderAll, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$", recursive = TRUE) # v for vector
 
-files <- data.frame(TXT) %>% 
-  mutate(TG = case_when(substr(TXT, 1, 6) %in% substr(TGv, 1, 6) ~ TGv[match(substr(TXT, 1, 6), substr(TGv, 1, 6))]))
+files <- data.frame(TXT) |> 
+  mutate(TG = case_when(substr(TXT, 1, 10) %in% substr(TGv, 1, 10) ~ TGv[match(substr(TXT, 1, 10), substr(TGv, 1, 10))]))
 
-f0 <- data.frame(matrix(nrow=0, ncol=15))
-names(f0) <- c("file", "speaker", "turn", "IPU", "overlap", "f0mean", "f0med", "f0sd", "f0max", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset", "overlapOnset", "overlapOffset")
+f0 <- data.frame(matrix(nrow=0, ncol=14))
+names(f0) <- c("file", "speaker", "turn", "IPU", "f0mean", "f0med", "f0sd", "f0max", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset", "task", "firstSp")
+f0 <- f0 |> 
+  mutate_at(c("turn", "IPU", "f0mean", "f0med", "f0sd", "f0max", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric)
+
+overlaps <- data.frame(matrix(nrow=0, ncol=5))
+names(overlaps) <- c("file", "speaker", "overlap", "overlapOnset", "overlapOffset")
 
 for(i in 1:nrow(files)){
-  speaker <- paste0(substr(files$TXT[i], 1, 4), substr(files$TXT[i], 8, 8))
+  speaker <- paste0(substr(files$TXT[i], 5, 8), substr(files$TXT[i], 12, 12))
+  file <- substr(files$TXT[i], 5, 10)
   sp <- ifelse(grepl("-A", files$TXT[i]), "A", "B")
   turnTier <- paste0("speaker", sp)
   silenceTier <- paste0("silence", sp)
-  turnCount <- 0
+  task <- ifelse(grepl("-L", files$TXT[i]), "Lists", ifelse(grepl("-D", files$TXT[i]), "Diapix", NA))
   overlapCount <- 0
-  
-  txt <- read.table(paste0(folderAll, files$TXT[i]), header = TRUE, na.strings = "--undefined--") %>% 
+  # prevFile <- ifelse(grepl("-L2|-D2", file), gsub("2", "1", file), ifelse(grepl("L3", file), gsub("3", "2", file), NA))
+  if(grepl("-L1|-D1", file)){
+    turnCount <- 0
+  } else{
+      turnCount <- max(as.numeric(f0$turn[f0$speaker==speaker & f0$task==task]))
+  }
+  txt <- read.table(paste0(folderAll, files$TXT[i]), header = TRUE, na.strings = "--undefined--") |> 
     mutate(meanZ = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
            medZ = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
            sdZ = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
-           maxZ = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) %>% 
+           maxZ = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
     mutate(f0mean = ifelse(abs(meanZ) > 2.5, NA, f0mean),
            f0med = ifelse(abs(medZ) > 2.5, NA, f0med),
            f0sd = ifelse(abs(sdZ) > 2.5, NA, f0sd),
@@ -47,22 +58,36 @@ for(i in 1:nrow(files)){
   for(p in 1:tg.getNumberOfIntervals(tg, turnTier)){
     if(tg.getLabel(tg, turnTier, p) == "overlap"){
       overlapCount <- overlapCount + 1
-      f0[nrow(f0)+1,] <- c(substr(files$TXT[i], 1, 6),
-                           speaker,
-                           NA, NA,
-                           overlapCount,
-                           NA, NA, NA, NA, NA, NA, NA, NA,
-                           as.numeric(tg.getIntervalStartTime(tg, turnTier, p)),
-                           as.numeric(tg.getIntervalEndTime(tg, turnTier, p)))
+      overlaps[nrow(overlaps)+1,] <- c(file,
+                                       speaker,
+                                       overlapCount,
+                                       as.numeric(tg.getIntervalStartTime(tg, turnTier, p)),
+                                       as.numeric(tg.getIntervalEndTime(tg, turnTier, p)))
     }
+    
     if(tg.getLabel(tg, turnTier, p) == "s"){
       ipuCount <- 0
-      turnCount <- turnCount + 1
+      # turn count will be the maximum turn already existing for this speaker/file, plus one
+      # except that if the current turnCount is 0 (i.e., first turn of the file for this speaker), it's just turnCount+1
+      if(turnCount == 0){
+        turnCount <- turnCount + 1
+      } else{
+        # if(any(f0$speaker==speaker & f0$task==task)){
+          turnCount <- max(as.numeric(f0$turn[f0$task==task & f0$speaker==speaker])) + 1  
+        # }
+      }
       
       if(p > 2){ # make sure turnCount is right for turns with overlaps
         if(tg.getLabel(tg, turnTier, p-1) == "overlap"){
           if(tg.getLabel(tg, turnTier, p-2) == "s"){ # this means the turn had begun before the overlap
-            turnCount <- turnCount - 1
+            if(any(f0$turnOnset == tg.getIntervalStartTime(tg, turnTier, p-2))){ # check if this previous "s" interval is an actual turn that was saved in the dataset (in at least 1 case it didn't because it was only a few ms without f0)
+              if(any(f0$turnOffset == tg.getIntervalEndTime(tg, turnTier, p-2))){
+                # turnCount is actually minus 1 (because we added +1 above, but the turn is still the same)
+                turnCount <- turnCount - 1
+                # ipuCount should also keep going from the running turn before the overlap
+                ipuCount <- max(as.numeric(f0$IPU[f0$file==file & f0$speaker==speaker & f0$turn==turnCount])) # the last row is an overlap, so get the IPU count from before it
+              }
+            }
           }
         }
       }
@@ -89,29 +114,33 @@ for(i in 1:nrow(files)){
               }
             }
             if(any(!is.na(f))){
-              f0[nrow(f0)+1,] <- c(substr(files$TXT[i], 1, 6),
+              f0[nrow(f0)+1,] <- c(file,
                                    speaker,
                                    turnCount,
                                    ipuCount,
-                                   NA,
                                    mean(f$f0mean, na.rm=TRUE),
                                    mean(f$f0med, na.rm=TRUE),
                                    mean(f$f0sd, na.rm=TRUE),
                                    mean(f$f0max, na.rm=TRUE),
                                    turnOnset, turnOffset, startIPU, endIPU,
-                                   NA, NA)
+                                   task,
+                                   NA)
             }
             if(all(is.na(f))){
               # if there are no valid f0 values in the IPU, turn back IPU count
               ipuCount <- ipuCount - 1
-              # and if there were no other IPUs in the current turn, also turn back the turn count
-              if(ipuCount == 0){
-                turnCount <- turnCount - 1
-              }
             }
           }
         }
       }
+    }
+  }
+  
+  # before going to the next file, check if both speakers of this given file are already in the dataset
+  # if so, calculate who the first speaker in that file is
+  if(any(substr(f0$speaker[f0$file==file], 5, 5) == "A")){
+    if(any(substr(f0$speaker[f0$file==file], 5, 5) == "B")){
+      f0$firstSp[f0$file==file] <- unique(as.character(f0$speaker[f0$file==file & f0$turnOnset == min(f0$turnOnset[f0$file==file])]))
     }
   }
 }
@@ -120,31 +149,24 @@ for(i in 1:nrow(files)){
 
 f0save <- f0
 
-overlaps <- f0 %>% 
-  filter(!is.na(overlap)) %>% 
-  select(file, speaker, overlap, overlapOnset, overlapOffset) %>% 
-  mutate_at(c("overlapOnset", "overlapOffset"), as.numeric) %>%
-  mutate(duration = overlapOffset - overlapOnset)
-
-dat <- f0 %>% 
-  filter(is.na(overlap)) %>% 
-  select(!c(overlap, overlapOnset, overlapOffset)) %>% 
-  mutate_at(c("f0mean", "f0med", "f0sd", "f0max", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) %>%
-  mutate_at(c("file", "speaker"), as.factor) %>% 
-  group_by(file, speaker) %>%
-  mutate(index = 1:n()) %>% 
-  group_by(file, speaker, turn) %>%
+dat <- f0 |> 
+  mutate_at(c("f0mean", "f0med", "f0sd", "f0max", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) |>
+  mutate_at(c("file", "speaker"), as.factor) |> 
+  group_by(file, speaker) |>
+  mutate(index = 1:n()) |> 
+  group_by(file, speaker, turn) |>
   mutate(IPU = 1:n(),
          turnf0mean = mean(f0mean, na.rm=TRUE),
          turnf0med = mean(f0med, na.rm=TRUE),
          turnf0sd = mean(f0sd, na.rm=TRUE),
-         turnf0max = mean(f0max, na.rm=TRUE)) %>% 
-  ungroup() %>% 
+         turnf0max = mean(f0max, na.rm=TRUE),
+         turnOnset = min(turnOnset), # correcting the turnOnsets and Offsets bc those of the turns with overlaps got saved as the intervals between overlaps, not start and end of actual turn
+         turnOffset = max(turnOffset)) |> 
+  ungroup() |> 
   mutate(turnDur = turnOffset - turnOnset,
          ipuDur = ipuOffset - ipuOnset,
          # qual = ifelse(grepl("D1|D2", file), "bad", "good"),
-         task = case_when(grepl("-L", file) ~ "Lists", grepl("-D", file) ~ "Diapix"),
-         order = ifelse(grepl("L1", task), 1, ifelse(grepl("L2", task), 2, ifelse(grepl("L3", task), 3, ifelse(grepl("D1", task), 4, 5)))),
+         order = case_when(task=="Lists" ~ 1, task=="Diapix" ~ 2),
          dyad = substr(file, 1, 3),
          f0mean = ifelse(is.nan(f0mean), NA, f0mean),
          f0med = ifelse(is.nan(f0med), NA, f0med),
@@ -153,6 +175,7 @@ dat <- f0 %>%
          turnf0mean = ifelse(is.nan(turnf0mean), NA, turnf0mean),
          turnf0med = ifelse(is.nan(turnf0med), NA, turnf0med),
          turnf0sd = ifelse(is.nan(turnf0sd), NA, turnf0sd),
+         turnf0max = ifelse(is.nan(turnf0max), NA, turnf0max),
          firstSp = NA,
          prevf0mean = NA,
          prevf0med = NA,
@@ -163,113 +186,105 @@ dat <- f0 %>%
          prevTurnf0sd = NA,
          prevTurnf0max = NA)
 
-# determine who is the first speaker in each file
-for(f in unique(dat$file)){
-  dat$firstSp[dat$file==f] <- unique(as.character(dat$speaker[dat$file==f & dat$turnOnset == min(dat$turnOnset[dat$file==f])]))
-}
-
-dat <- dat %>% 
-  group_by(file) %>% 
-  mutate(prevTurn = ifelse(speaker == firstSp, turn-1, turn)) %>%
-  mutate(prevTurn = ifelse(speaker == firstSp & turn == 1, NA, prevTurn)) %>%
+# save what each speaker's interlocutor's previous turn is (which will inform where previous f0 comes from)
+dat <- dat |> 
+  group_by(file) |> 
+  mutate(prevTurn = ifelse(speaker == firstSp, turn-1, turn)) |>
+  mutate(prevTurn = ifelse(speaker == firstSp & turn == 1, NA, prevTurn)) |>
   ungroup()
 
+#############################
+d <- dat |>
+  filter(file=="AML-D1") |>
+  select(file, speaker, turn, turnOnset, turnOffset, f0mean, f0med, f0max, f0sd) |>
+  arrange(turnOnset)
+
+#############################
+
 for(i in 1:nrow(dat)){
-  prevf0mean <- dat$f0mean[dat$file == dat$file[i] &
+  if(dat$IPU[i] == 1){
+    # get the last IPU of the previous turn
+    prevLastIPU <- max(dat$IPU[dat$file == dat$file[i] &
+                                 dat$speaker != dat$speaker[i] &
+                                 dat$turn == dat$prevTurn[i]])
+    
+    # and get f0 values from that IPU
+    prevf0mean <- dat$f0mean[dat$file == dat$file[i] &
+                               dat$speaker != dat$speaker[i] &
+                               dat$turn == dat$prevTurn[i] &
+                               dat$IPU == prevLastIPU]
+    prevf0med <- dat$f0med[dat$file == dat$file[i] &
                              dat$speaker != dat$speaker[i] &
                              dat$turn == dat$prevTurn[i] &
-                             dat$IPU == dat$IPU[i]]
-  prevf0med <- dat$f0med[dat$file == dat$file[i] &
+                             dat$IPU == prevLastIPU]
+    prevf0sd <- dat$f0sd[dat$file == dat$file[i] &
                            dat$speaker != dat$speaker[i] &
                            dat$turn == dat$prevTurn[i] &
-                           dat$IPU == dat$IPU[i]]
-  prevf0sd <- dat$f0sd[dat$file == dat$file[i] &
-                         dat$speaker != dat$speaker[i] &
-                         dat$turn == dat$prevTurn[i] &
-                         dat$IPU == dat$IPU[i]]
-  prevf0max <- dat$f0max[dat$file == dat$file[i] &
-                           dat$speaker != dat$speaker[i] &
-                           dat$turn == dat$prevTurn[i] &
-                           dat$IPU == dat$IPU[i]]
-  prevTurnf0mean <- unique(dat$turnf0mean[dat$file == dat$file[i] &
+                           dat$IPU == prevLastIPU]
+    prevf0max <- dat$f0max[dat$file == dat$file[i] &
+                             dat$speaker != dat$speaker[i] &
+                             dat$turn == dat$prevTurn[i] &
+                             dat$IPU == prevLastIPU]
+    
+    # get f0 average over all of previous turn
+    prevTurnf0mean <- unique(dat$turnf0mean[dat$file == dat$file[i] &
+                                              dat$speaker != dat$speaker[i] &
+                                              dat$turn == dat$prevTurn[i]])
+    prevTurnf0med <- unique(dat$turnf0med[dat$file == dat$file[i] &
                                             dat$speaker != dat$speaker[i] &
                                             dat$turn == dat$prevTurn[i]])
-  prevTurnf0med <- unique(dat$turnf0med[dat$file == dat$file[i] &
+    prevTurnf0sd <- unique(dat$turnf0sd[dat$file == dat$file[i] &
                                           dat$speaker != dat$speaker[i] &
                                           dat$turn == dat$prevTurn[i]])
-  prevTurnf0sd <- unique(dat$turnf0sd[dat$file == dat$file[i] &
-                                        dat$speaker != dat$speaker[i] &
-                                        dat$turn == dat$prevTurn[i]])
-  prevTurnf0max <- unique(dat$turnf0max[dat$file == dat$file[i] &
-                                          dat$speaker != dat$speaker[i] &
-                                          dat$turn == dat$prevTurn[i]])
-  if(!purrr::is_empty(prevf0mean)){
-    if(!any(is.na(prevf0mean))){
-      dat$prevf0mean[i] <- prevf0mean
+    prevTurnf0max <- unique(dat$turnf0max[dat$file == dat$file[i] &
+                                            dat$speaker != dat$speaker[i] &
+                                            dat$turn == dat$prevTurn[i]])
+    if(!purrr::is_empty(prevf0mean)){
+      if(!any(is.na(prevf0mean))){
+        dat$prevf0mean[i] <- prevf0mean
+      }
     }
-  }
-  if(!purrr::is_empty(prevf0med)){
-    if(!any(is.na(prevf0med))){
-      dat$prevf0med[i] <- prevf0med
+    if(!purrr::is_empty(prevf0med)){
+      if(!any(is.na(prevf0med))){
+        dat$prevf0med[i] <- prevf0med
+      }
     }
-  }
-  if(!purrr::is_empty(prevf0sd)){
-    if(!any(is.na(prevf0sd))){
-      dat$prevf0sd[i] <- prevf0sd
+    if(!purrr::is_empty(prevf0sd)){
+      if(!any(is.na(prevf0sd))){
+        dat$prevf0sd[i] <- prevf0sd
+      }
     }
-  }
-  if(!purrr::is_empty(prevf0max)){
-    if(!any(is.na(prevf0max))){
-      dat$prevf0max[i] <- prevf0max
+    if(!purrr::is_empty(prevf0max)){
+      if(!any(is.na(prevf0max))){
+        dat$prevf0max[i] <- prevf0max
+      }
     }
-  }
-  if(!purrr::is_empty(prevTurnf0mean)){
-    if(!any(is.na(prevTurnf0mean))){
-      dat$prevTurnf0mean[i] <- prevTurnf0mean
+    if(!purrr::is_empty(prevTurnf0mean)){
+      if(!any(is.na(prevTurnf0mean))){
+        dat$prevTurnf0mean[i] <- prevTurnf0mean
+      }
     }
-  }
-  if(!purrr::is_empty(prevTurnf0med)){
-    if(!any(is.na(prevTurnf0med))){
-      dat$prevTurnf0med[i] <- prevTurnf0med
+    if(!purrr::is_empty(prevTurnf0med)){
+      if(!any(is.na(prevTurnf0med))){
+        dat$prevTurnf0med[i] <- prevTurnf0med
+      }
     }
-  }
-  if(!purrr::is_empty(prevTurnf0sd)){
-    if(!any(is.na(prevTurnf0sd))){
-      dat$prevTurnf0sd[i] <- prevTurnf0sd
+    if(!purrr::is_empty(prevTurnf0sd)){
+      if(!any(is.na(prevTurnf0sd))){
+        dat$prevTurnf0sd[i] <- prevTurnf0sd
+      }
     }
-  }
-  if(!purrr::is_empty(prevTurnf0max)){
-    if(!any(is.na(prevTurnf0max))){
-      dat$prevTurnf0max[i] <- prevTurnf0max
+    if(!purrr::is_empty(prevTurnf0max)){
+      if(!any(is.na(prevTurnf0max))){
+        dat$prevTurnf0max[i] <- prevTurnf0max
+      }
     }
   }
 }
 
-# dat0 <- data.frame(matrix(nrow=0, ncol=5))
-# names(dat0) <- c("speaker", "task", "turn", "IPU", "overallTurn")
-# 
-# for(s in unique(dat$speaker)){ # the warnings received (no non-missing arguments to max) are because FWR's D1 files and MJG's L3 files are missing
-#   l1 <- max(dat$turn[dat$speaker==s & dat$task=="L1"])
-#   l2 <- max(dat$turn[dat$speaker==s & dat$task=="L2"] + l1)
-#   l3 <- max(dat$turn[dat$speaker==s & dat$task=="L3"] + l2)
-#   d1 <- max(dat$turn[dat$speaker==s & dat$task=="D1"] + l3)
-#   current <- dat %>%
-#     filter(speaker==s) %>% 
-#     select(speaker, task, turn, IPU) %>% 
-#     mutate(overallTurn = case_when(
-#       task=="L1" ~ turn,
-#       task=="L2" ~ turn + l1,
-#       task=="L3" ~ turn + l2,
-#       task=="D1" ~ turn + l3,
-#       task=="D2" ~ turn + d1
-#     ))
-#   dat0 <- rbind(dat0, current)
-# }
-# 
-# dat <- merge(dat, dat0, by=c("speaker", "task", "turn", "IPU"))
-
-dat <- dat %>% 
-  group_by(speaker) %>% 
+dat <- dat |> 
+  filter(IPU == 1) |> 
+  group_by(speaker) |> 
   mutate(prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE),
          prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE),
          prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
@@ -277,7 +292,7 @@ dat <- dat %>%
          prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
          prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
          prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
-         prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)) %>% 
+         prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)) |> 
   ungroup()
 
 save(dat, file=gsub("AllForPreprocessing/", "data-noMetadata.RData", folderAll))
@@ -288,7 +303,7 @@ save(dat, file=gsub("AllForPreprocessing/", "data-noMetadata.RData", folderAll))
 
 m <- read.csv(paste0(folderAll, "metadata.csv"))
 names(m) <- tolower(names(m))
-m <- m %>% 
+m <- m |> 
   rename(speaker = participant,
          L1 = l1,
          preAcquaintance = preacquaintance,
@@ -298,42 +313,42 @@ m <- m %>%
          tempPost = temppost,
          realTempPre = realtemppre,
          realTempDuring = realtempduring,
-         realTempPost = realtemppost) %>% 
+         realTempPost = realtemppost) |> 
   mutate(condition = case_when(
     condition == "exp" ~ "close",
     condition == "con" ~ "impersonal",
   ))
 
-f <- read.csv(paste0(folder, "bfi-factors.csv"), sep=";", na.strings = "") %>% 
-  filter(!is.na(factor)) %>% 
+f <- read.csv(paste0(folder, "bfi-factors.csv"), sep=";", na.strings = "") |> 
+  filter(!is.na(factor)) |> 
   mutate(item = paste0("bfi", item))
-i <- m %>% 
-  select_if(grepl("bfi|speaker", names(.))) %>% 
-  select_if(!grepl("5|32|37", names(.))) %>% # in the paper of the Italian BFI (Fossati et al 2011) they left out those items from the PCA table without mentioning anything, which I find shady
+i <- m |> 
+  select_if(grepl("bfi|speaker", names(.))) |> 
+  select_if(!grepl("5|32|37", names(.))) |> # in the paper of the Italian BFI (Fossati et al 2011) they left out those items from the PCA table without mentioning anything, which I find shady
   pivot_longer(cols=c("bfi1":"bfi44"),
                names_to="item",
-               values_to="rating") %>% 
+               values_to="rating") |> 
   mutate(rating = ifelse(rating==7, 5, rating))
-bfi <- merge(i, f, by="item") %>% 
+bfi <- merge(i, f, by="item") |> 
   mutate(rating = case_when(reversed == "R" ~ 6 - rating,
-                            is.na(reversed) ~ rating)) %>% 
-  group_by(speaker, factor) %>% 
-  mutate(score = mean(rating, na.rm=TRUE)) %>% 
-  ungroup() %>% 
+                            is.na(reversed) ~ rating)) |> 
+  group_by(speaker, factor) |> 
+  mutate(score = mean(rating, na.rm=TRUE)) |> 
+  ungroup() |> 
   mutate(factor = case_when(
     factor == "A" ~ "agreeableness",
     factor == "C" ~ "conscientiousness",
     factor == "E" ~ "extraversion",
     factor == "N" ~ "neuroticism",
     factor == "O" ~ "openness",
-  )) %>% 
-  select(-c(item, rating, reversed)) %>% 
-  distinct() %>%
+  )) |> 
+  select(-c(item, rating, reversed)) |> 
+  distinct() |>
   pivot_wider(names_from = factor,
               values_from = score)
 
-m <- merge(m, bfi, by="speaker") %>% 
-  select_if(!grepl("bfi", names(.))) %>% 
+m <- merge(m, bfi, by="speaker") |> 
+  select_if(!grepl("bfi", names(.))) |> 
   rename(privacy = rcit1, # Pensi di aver avuto un'adeguata privacy nella tua conversazione?
          atEase = rcit2, # Ti sei sentito relativamente a tuo agio in questo ambiente di conversazione?
          convMeet = rcit3, # Consideri la conversazione un buon modo per conoscere qualcuno?
