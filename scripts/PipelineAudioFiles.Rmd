@@ -479,4 +479,32 @@ Use the Praat script `toParamAc.praat` to extract f0 of the “sounding” inter
 
 Go on `Preprocessing.R` and create the formatted dataset
 
+I found a case where, one speaker had 2 turns in a row, with no speech from the interlocutor in between. So run the following to be sure to join all such instances into once turn.
+
+```{r}
+for(d in dyads){
+  currentFolder <- paste0(folderGeneral, "processed/", d, "/")
+  files <- list.files(currentFolder, "^[A-Z]{3}-(D|L)[0-9]\\.TextGrid$")
+  
+  for(f in files){
+    tg <- tg.read(paste0(currentFolder, f), encoding=detectEncoding(paste0(currentFolder, f)))
+    for(tier in c("speakerA", "speakerB")){
+      for(i in 1:(tg.getNumberOfIntervals(tg, tier)-2)){
+        if(i > (tg.getNumberOfIntervals(tg, tier)-2)){
+          next
+        }
+        if(tg.getLabel(tg, tier, i) =="s"){
+          if(tg.getLabel(tg, tier, i+1) ==""){
+            if(tg.getLabel(tg, tier, i+2) =="s"){
+              tg <- tg.setLabel(tg, tier, i, "")
+              tg <- tg.removeIntervalBothBoundaries(tg, tier, i+1)
+            }
+          }
+        }
+      }
+    }
+    tg.write(tg, paste0(currentFolder, f))
+  }
+}
+```
 

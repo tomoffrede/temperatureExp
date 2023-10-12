@@ -38,12 +38,8 @@ for(i in 1:nrow(files)){
   silenceTier <- paste0("silence", sp)
   task <- ifelse(grepl("-L", files$TXT[i]), "Lists", ifelse(grepl("-D", files$TXT[i]), "Diapix", NA))
   overlapCount <- 0
-  # prevFile <- ifelse(grepl("-L2|-D2", file), gsub("2", "1", file), ifelse(grepl("L3", file), gsub("3", "2", file), NA))
-  if(grepl("-L1|-D1", file)){
-    turnCount <- 0
-  } else{
-      turnCount <- max(as.numeric(f0$turn[f0$speaker==speaker & f0$task==task]))
-  }
+  turnCount <- 0
+  
   txt <- read.table(paste0(folderAll, files$TXT[i]), header = TRUE, na.strings = "--undefined--") |> 
     mutate(meanZ = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
            medZ = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
@@ -67,14 +63,14 @@ for(i in 1:nrow(files)){
     
     if(tg.getLabel(tg, turnTier, p) == "s"){
       ipuCount <- 0
-      # turn count will be the maximum turn already existing for this speaker/file, plus one
-      # except that if the current turnCount is 0 (i.e., first turn of the file for this speaker), it's just turnCount+1
       if(turnCount == 0){
         turnCount <- turnCount + 1
       } else{
-        # if(any(f0$speaker==speaker & f0$task==task)){
-          turnCount <- max(as.numeric(f0$turn[f0$task==task & f0$speaker==speaker])) + 1  
-        # }
+        if(any(f0$speaker==speaker & f0$file==file)){
+          turnCount <- max(as.numeric(f0$turn[f0$file==file & f0$speaker==speaker])) + 1  
+        } else{
+          turnCount <- turnCount
+        }
       }
       
       if(p > 2){ # make sure turnCount is right for turns with overlaps
@@ -133,14 +129,20 @@ for(i in 1:nrow(files)){
           }
         }
       }
-    }
-  }
-  
-  # before going to the next file, check if both speakers of this given file are already in the dataset
-  # if so, calculate who the first speaker in that file is
-  if(any(substr(f0$speaker[f0$file==file], 5, 5) == "A")){
-    if(any(substr(f0$speaker[f0$file==file], 5, 5) == "B")){
-      f0$firstSp[f0$file==file] <- unique(as.character(f0$speaker[f0$file==file & f0$turnOnset == min(f0$turnOnset[f0$file==file])]))
+      
+      # if there are no rows containing f0 information for this current turn (e.g. it's a short turn with no sounded vocalizations)
+      # add a blank row with only minimal turn info, so that the turn count over the file doesn't get thrown off (and it's important to keep it perfect for the calculation of prevf0)
+      if(!any(f0$turn[f0$file==file & f0$speaker==speaker] == turnCount)){
+        f0[nrow(f0)+1,] <- c(file,
+                             speaker,
+                             turnCount,
+                             NA, NA, NA, NA, NA,
+                             turnOnset, turnOffset,
+                             NA, NA,
+                             task,
+                             NA)  
+        
+      }
     }
   }
 }
@@ -148,6 +150,7 @@ for(i in 1:nrow(files)){
 # save(f0, file=gsub("AllForPreprocessing/", "f0-tentative.RData", folderAll))
 
 f0save <- f0
+# f0 <- f0save
 
 dat <- f0 |> 
   mutate_at(c("f0mean", "f0med", "f0sd", "f0max", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) |>
@@ -186,6 +189,11 @@ dat <- f0 |>
          prevTurnf0sd = NA,
          prevTurnf0max = NA)
 
+# determine who is the first speaker in each file
+for(f in unique(dat$file)){
+  dat$firstSp[dat$file==f] <- unique(as.character(dat$speaker[dat$file==f & dat$turnOnset == min(dat$turnOnset[dat$file==f])]))
+}
+
 # save what each speaker's interlocutor's previous turn is (which will inform where previous f0 comes from)
 dat <- dat |> 
   group_by(file) |> 
@@ -195,13 +203,15 @@ dat <- dat |>
 
 #############################
 d <- dat |>
-  filter(file=="AML-D1") |>
+  filter(file=="KDA-D1") |>
   select(file, speaker, turn, turnOnset, turnOffset, f0mean, f0med, f0max, f0sd) |>
-  arrange(turnOnset)
+  arrange(turnOnset) |> 
+  filter(!duplicated(paste(speaker, turn)))
 
 #############################
 
 for(i in 1:nrow(dat)){
+  # for(i in 859:nrow(dat)){
   if(dat$IPU[i] == 1){
     # get the last IPU of the previous turn
     prevLastIPU <- max(dat$IPU[dat$file == dat$file[i] &
