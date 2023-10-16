@@ -489,6 +489,7 @@ for(d in dyads){
   for(f in files){
     tg <- tg.read(paste0(currentFolder, f), encoding=detectEncoding(paste0(currentFolder, f)))
     for(tier in c("speakerA", "speakerB")){
+      otherTier <- ifelse(tier=="speakerA", "speakerB", "speakerA")
       for(i in 1:(tg.getNumberOfIntervals(tg, tier)-2)){
         if(i > (tg.getNumberOfIntervals(tg, tier)-2)){
           next
@@ -496,8 +497,16 @@ for(d in dyads){
         if(tg.getLabel(tg, tier, i) =="s"){
           if(tg.getLabel(tg, tier, i+1) ==""){
             if(tg.getLabel(tg, tier, i+2) =="s"){
-              tg <- tg.setLabel(tg, tier, i, "")
-              tg <- tg.removeIntervalBothBoundaries(tg, tier, i+1)
+              offset1st <- tg.getIntervalEndTime(tg, tier, i)
+              onset2nd <- tg.getIntervalStartTime(tg, tier, i+2)
+              labels <- c()
+              for(int in as.numeric(tg.getIntervalIndexAtTime(tg, otherTier, offset1st)):as.numeric(tg.getIntervalIndexAtTime(tg, otherTier, onset2nd))){
+                labels <- c(labels, tg.getLabel(tg, otherTier, int))
+              }
+              if(all(labels == "")){
+                  tg <- tg.setLabel(tg, tier, i, "")
+                  tg <- tg.removeIntervalBothBoundaries(tg, tier, i+1)
+                }
             }
           }
         }

@@ -187,7 +187,11 @@ dat <- f0 |>
          prevTurnf0mean = NA,
          prevTurnf0med = NA,
          prevTurnf0sd = NA,
-         prevTurnf0max = NA)
+         prevTurnf0max = NA,
+         mockPrevf0mean1 = NA,mockPrevf0mean2 = NA,mockPrevf0mean3 = NA,mockPrevf0mean4 = NA,mockPrevf0mean5= NA,mockPrevf0mean6 = NA,mockPrevf0mean7 = NA,mockPrevf0mean8 = NA,mockPrevf0mean9 = NA,mockPrevf0mean10 = NA,
+         mockPrevf0med1 = NA,mockPrevf0med2 = NA,mockPrevf0med3 = NA,mockPrevf0med4 = NA,mockPrevf0med5 = NA,mockPrevf0med6 = NA,mockPrevf0med7 = NA,mockPrevf0med8 = NA,mockPrevf0med9 = NA,mockPrevf0med10 = NA,
+         mockPrevf0sd1 = NA,mockPrevf0sd2 = NA,mockPrevf0sd3 = NA,mockPrevf0sd4 = NA,mockPrevf0sd5 = NA,mockPrevf0sd6 = NA,mockPrevf0sd7 = NA,mockPrevf0sd8 = NA,mockPrevf0sd9 = NA,mockPrevf0sd10 = NA,
+         mockPrevf0max1 = NA,mockPrevf0max2 = NA,mockPrevf0max3 = NA,mockPrevf0max4 = NA,mockPrevf0max5 = NA,mockPrevf0max6 = NA,mockPrevf0max7 = NA,mockPrevf0max8 = NA,mockPrevf0max9 = NA,mockPrevf0max10 = NA)
 
 # determine who is the first speaker in each file
 for(f in unique(dat$file)){
@@ -202,14 +206,15 @@ dat <- dat |>
   ungroup()
 
 #############################
-d <- dat |>
-  filter(file=="KDA-D1") |>
-  select(file, speaker, turn, turnOnset, turnOffset, f0mean, f0med, f0max, f0sd) |>
-  arrange(turnOnset) |> 
-  filter(!duplicated(paste(speaker, turn)))
+# d <- dat |>
+#   filter(file=="KDA-D1") |>
+#   select(file, speaker, turn, turnOnset, turnOffset, f0mean, f0med, f0max, f0sd) |>
+#   arrange(turnOnset) |> 
+#   filter(!duplicated(paste(speaker, turn)))
 
 #############################
 
+# save the f0 value of the previous turn (both of the last IPU and the average of the previous turn)
 for(i in 1:nrow(dat)){
   # for(i in 859:nrow(dat)){
   if(dat$IPU[i] == 1){
@@ -291,18 +296,62 @@ for(i in 1:nrow(dat)){
     }
   }
 }
+datsave <- dat
+# dat <- datsave
+
+# get the difference between each target IPU and 10 random non-adjacent ones (from the same speaker)
+for(s in unique(dat$speaker)){
+  interlocutor <- ifelse(grepl("-A", s),
+                         gsub("-A", "-B", s),
+                         gsub("-B", "-A", s))
+  for(f in unique(dat$file[dat$speaker==s])){
+    ipusMean <- dat$f0mean[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0mean)]
+    ipusMed <- dat$f0med[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0med)]
+    ipusSD <- dat$f0sd[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0sd)]
+    ipusMax <- dat$f0max[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0max)]
+    
+    for(i in 1:nrow(dat)){
+      if(dat$speaker[i]==s){
+        if(dat$file[i]==f){
+          if(dat$IPU[i]==1){
+            lengthMean <- ifelse(length(ipusMean[ipusMean %!in% dat$prevf0mean[i]]) >= 10, 10, length(ipusMean[ipusMean %!in% dat$prevf0mean[i]])-1)
+            ipusMeanCurrent <- sample(ipusMean[ipusMean %!in% dat$prevf0mean[i]], lengthMean, replace=FALSE)
+            dat[i, c(paste0("mockPrevf0mean", 1:lengthMean))] <- as.list(abs(dat$f0mean[i] - ipusMeanCurrent))
+            
+            lengthMed <- ifelse(length(ipusMed[ipusMed %!in% dat$prevf0med[i]]) >= 10, 10, length(ipusMed[ipusMed %!in% dat$prevf0med[i]])-1)
+            ipusMedCurrent <- sample(ipusMed[ipusMed %!in% dat$prevf0med[i]], lengthMed, replace=FALSE)
+            dat[i, c(paste0("mockPrevf0med", 1:lengthMed))] <- as.list(abs(dat$f0med[i] - ipusMedCurrent))
+
+            lengthSD <- ifelse(length(ipusSD[ipusSD %!in% dat$prevf0sd[i]]) >= 10, 10, length(ipusSD[ipusSD %!in% dat$prevf0sd[i]])-1)
+            ipusSDCurrent <- sample(ipusSD[ipusSD %!in% dat$prevf0sd[i]], lengthSD, replace=FALSE)
+            dat[i, c(paste0("mockPrevf0sd", 1:lengthSD))] <- as.list(abs(dat$f0sd[i] - ipusSDCurrent))
+            
+            lengthMax <- ifelse(length(ipusMax[ipusMax %!in% dat$prevf0max[i]]) >= 10, 10, length(ipusMax[ipusMax %!in% dat$prevf0max[i]])-1)
+            ipusMaxCurrent <- sample(ipusMax[ipusMax %!in% dat$prevf0max[i]], lengthMax, replace=FALSE)
+            dat[i, c(paste0("mockPrevf0max", 1:lengthMax))] <- as.list(abs(dat$f0max[i] - ipusMaxCurrent))
+          }
+        }
+      }
+    }
+  }
+}
 
 dat <- dat |> 
   filter(IPU == 1) |> 
   group_by(speaker) |> 
-  mutate(prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE),
-         prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE),
-         prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
-         prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
-         prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
-         prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
-         prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
-         prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)) |> 
+  mutate(f0meanDiff = abs(f0mean - prevf0mean),
+         f0medDiff = abs(f0med - prevf0med),
+         f0sdDiff = abs(f0sd - prevf0sd),
+         f0fmaxDiff = abs(f0max - prevf0max),
+         # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
+         # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
+         # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
+         # prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
+         # prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
+         # prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
+         # prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
+         # prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)
+         ) |> 
   ungroup()
 
 save(dat, file=gsub("AllForPreprocessing/", "data-noMetadata.RData", folderAll))
