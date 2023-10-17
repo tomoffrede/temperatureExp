@@ -188,10 +188,10 @@ dat <- f0 |>
          prevTurnf0med = NA,
          prevTurnf0sd = NA,
          prevTurnf0max = NA,
-         mockPrevf0mean1 = NA,mockPrevf0mean2 = NA,mockPrevf0mean3 = NA,mockPrevf0mean4 = NA,mockPrevf0mean5= NA,mockPrevf0mean6 = NA,mockPrevf0mean7 = NA,mockPrevf0mean8 = NA,mockPrevf0mean9 = NA,mockPrevf0mean10 = NA,
-         mockPrevf0med1 = NA,mockPrevf0med2 = NA,mockPrevf0med3 = NA,mockPrevf0med4 = NA,mockPrevf0med5 = NA,mockPrevf0med6 = NA,mockPrevf0med7 = NA,mockPrevf0med8 = NA,mockPrevf0med9 = NA,mockPrevf0med10 = NA,
-         mockPrevf0sd1 = NA,mockPrevf0sd2 = NA,mockPrevf0sd3 = NA,mockPrevf0sd4 = NA,mockPrevf0sd5 = NA,mockPrevf0sd6 = NA,mockPrevf0sd7 = NA,mockPrevf0sd8 = NA,mockPrevf0sd9 = NA,mockPrevf0sd10 = NA,
-         mockPrevf0max1 = NA,mockPrevf0max2 = NA,mockPrevf0max3 = NA,mockPrevf0max4 = NA,mockPrevf0max5 = NA,mockPrevf0max6 = NA,mockPrevf0max7 = NA,mockPrevf0max8 = NA,mockPrevf0max9 = NA,mockPrevf0max10 = NA)
+         mockMeanDiff1 = NA,mockMeanDiff2 = NA,mockMeanDiff3 = NA,mockMeanDiff4 = NA,mockMeanDiff5= NA,mockMeanDiff6 = NA,mockMeanDiff7 = NA,mockMeanDiff8 = NA,mockMeanDiff9 = NA,mockMeanDiff10 = NA,
+         mockMedDiff1 = NA,mockMedDiff2 = NA,mockMedDiff3 = NA,mockMedDiff4 = NA,mockMedDiff5 = NA,mockMedDiff6 = NA,mockMedDiff7 = NA,mockMedDiff8 = NA,mockMedDiff9 = NA,mockMedDiff10 = NA,
+         mockSdDiff1 = NA,mockSdDiff2 = NA,mockSdDiff3 = NA,mockSdDiff4 = NA,mockSdDiff5 = NA,mockSdDiff6 = NA,mockSdDiff7 = NA,mockSdDiff8 = NA,mockSdDiff9 = NA,mockSdDiff10 = NA,
+         mockMaxDiff1 = NA,mockMaxDiff2 = NA,mockMaxDiff3 = NA,mockMaxDiff4 = NA,mockMaxDiff5 = NA,mockMaxDiff6 = NA,mockMaxDiff7 = NA,mockMaxDiff8 = NA,mockMaxDiff9 = NA,mockMaxDiff10 = NA)
 
 # determine who is the first speaker in each file
 for(f in unique(dat$file)){
@@ -316,19 +316,19 @@ for(s in unique(dat$speaker)){
           if(dat$IPU[i]==1){
             lengthMean <- ifelse(length(ipusMean[ipusMean %!in% dat$prevf0mean[i]]) >= 10, 10, length(ipusMean[ipusMean %!in% dat$prevf0mean[i]])-1)
             ipusMeanCurrent <- sample(ipusMean[ipusMean %!in% dat$prevf0mean[i]], lengthMean, replace=FALSE)
-            dat[i, c(paste0("mockPrevf0mean", 1:lengthMean))] <- as.list(abs(dat$f0mean[i] - ipusMeanCurrent))
+            dat[i, c(paste0("mockMeanDiff", 1:lengthMean))] <- as.list(abs(dat$f0mean[i] - ipusMeanCurrent))
             
             lengthMed <- ifelse(length(ipusMed[ipusMed %!in% dat$prevf0med[i]]) >= 10, 10, length(ipusMed[ipusMed %!in% dat$prevf0med[i]])-1)
             ipusMedCurrent <- sample(ipusMed[ipusMed %!in% dat$prevf0med[i]], lengthMed, replace=FALSE)
-            dat[i, c(paste0("mockPrevf0med", 1:lengthMed))] <- as.list(abs(dat$f0med[i] - ipusMedCurrent))
+            dat[i, c(paste0("mockMedDiff", 1:lengthMed))] <- as.list(abs(dat$f0med[i] - ipusMedCurrent))
 
             lengthSD <- ifelse(length(ipusSD[ipusSD %!in% dat$prevf0sd[i]]) >= 10, 10, length(ipusSD[ipusSD %!in% dat$prevf0sd[i]])-1)
             ipusSDCurrent <- sample(ipusSD[ipusSD %!in% dat$prevf0sd[i]], lengthSD, replace=FALSE)
-            dat[i, c(paste0("mockPrevf0sd", 1:lengthSD))] <- as.list(abs(dat$f0sd[i] - ipusSDCurrent))
+            dat[i, c(paste0("mockSdDiff", 1:lengthSD))] <- as.list(abs(dat$f0sd[i] - ipusSDCurrent))
             
             lengthMax <- ifelse(length(ipusMax[ipusMax %!in% dat$prevf0max[i]]) >= 10, 10, length(ipusMax[ipusMax %!in% dat$prevf0max[i]])-1)
             ipusMaxCurrent <- sample(ipusMax[ipusMax %!in% dat$prevf0max[i]], lengthMax, replace=FALSE)
-            dat[i, c(paste0("mockPrevf0max", 1:lengthMax))] <- as.list(abs(dat$f0max[i] - ipusMaxCurrent))
+            dat[i, c(paste0("mockMaxDiff", 1:lengthMax))] <- as.list(abs(dat$f0max[i] - ipusMaxCurrent))
           }
         }
       }
@@ -375,3 +375,4 @@ dat0 <- dat # in case we want to check it before it gets merged
 dat <- merge(dat, m, by="speaker")
 
 save(dat, file=paste0(folderData, "speechData.RData"))
+

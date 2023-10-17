@@ -1,0 +1,83 @@
+---
+title: "Analysis-Speech"
+author: "Tom Offrede"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+load(paste0(here::here(), "/data/speechData.RData"))
+```
+
+# Difference between interlocutors' f0 median over time
+Per speaker
+
+```{r}
+ggplot(dat, aes(turnOverall, f0medDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+# Local convergence
+(following Levitan & Hirschberg 2011's method)
+
+```{r}
+corMed <- data.frame(matrix(nrow=0, ncol=4))
+names(corMed) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0medDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMed <- corMed |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA))
+countM <- corMed |> 
+  group_by(speaker) |> 
+  summarize(countMock = sum(!is.na(sign[type=="mock"]))) |> 
+  ungroup()
+countR <- corMed |> 
+  group_by(speaker) |> 
+  summarize(countReal = ifelse(sign[type=="real"]=="*", "yes", NA))
+count <- merge(countM, countR, by="speaker") |> 
+  arrange(countMock)
+```
+
+Below we see that only 3 speakers can be said to have converged/diverged on f0 median to their partner. (check direction)
+
+```{r}
+print(count[countM <= 1])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+
