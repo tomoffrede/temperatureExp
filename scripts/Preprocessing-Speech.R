@@ -342,7 +342,7 @@ dat <- dat |>
   mutate(f0meanDiff = abs(f0mean - prevf0mean),
          f0medDiff = abs(f0med - prevf0med),
          f0sdDiff = abs(f0sd - prevf0sd),
-         f0fmaxDiff = abs(f0max - prevf0max),
+         f0maxDiff = abs(f0max - prevf0max),
          # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
          # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
          # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),

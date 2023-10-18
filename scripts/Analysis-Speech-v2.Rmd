@@ -1,21 +1,32 @@
 ---
 title: "Analysis-Speech"
 author: "Tom Offrede"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r include=FALSE}
 library(tidyverse)
 
 load(paste0(here::here(), "/data/speechData.RData"))
+
+all <- data.frame(matrix(nrow=0, ncol=7))
+names(all) <- c("speaker", "direction", "mock", "real", "condition", "feature", "section")
 ```
 
-# Difference between interlocutors' f0 median over time
-Per speaker
+# Local convergence
+(following Levitan & Hirschberg 2011's method)
+
+## f0 median
+
+### Across the entire experiment
 
 ```{r}
 ggplot(dat, aes(turnOverall, f0medDiff))+
@@ -23,9 +34,6 @@ ggplot(dat, aes(turnOverall, f0medDiff))+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
 ```
-
-# Local convergence
-(following Levitan & Hirschberg 2011's method)
 
 ```{r}
 corMed <- data.frame(matrix(nrow=0, ncol=4))
@@ -39,39 +47,633 @@ for(s in unique(dat$speaker)){
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
-                alternative="two.sided", method="pearson")
-  corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+                  alternative="two.sided", method="pearson")
+    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
 corMed <- corMed |> 
-  mutate(sign = ifelse(p < 0.05, "*", NA))
-countM <- corMed |> 
-  group_by(speaker) |> 
-  summarize(countMock = sum(!is.na(sign[type=="mock"]))) |> 
-  ungroup()
-countR <- corMed |> 
-  group_by(speaker) |> 
-  summarize(countReal = ifelse(sign[type=="real"]=="*", "yes", NA))
-count <- merge(countM, countR, by="speaker") |> 
-  arrange(countMock)
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMed$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
+                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
+                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
 ```
 
-Below we see that only 3 speakers can be said to have converged/diverged on f0 median to their partner. (check direction)
+Below we see the only 3 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged and two diverged on f0 median. All from the impersonal condition.
 
 ```{r}
-print(count[countM <= 1])
+print(count)
 ```
 
 
+### Only in the first part of the experiment
+Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0medDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMed <- data.frame(matrix(nrow=0, ncol=4))
+names(corMed) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0medDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMed <- corMed |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMed$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
+                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
+                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged (in the close condition) and one diverged (impersonal condition) on f0 median.
+These 2 are different from the 3 displayed above.
+
+```{r}
+print(count)
+```
 
 
+### Only in the second part of the experiment
+Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0medDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMed <- data.frame(matrix(nrow=0, ncol=4))
+names(corMed) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0medDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMed <- corMed |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMed$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
+                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
+                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only speaker whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+She was in the close condition and converged to her partner.
+
+```{r}
+print(count)
+```
 
 
+## f0 max
+
+### Across the entire experiment
+
+```{r}
+ggplot(dat, aes(turnOverall, f0maxDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0maxDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+No one seemed to converge or diverge on f0 max.
+
+```{r}
+print(count)
+```
 
 
+### Only in the first part of the experiment
+Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0maxDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0maxDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged (in the close condition) and one diverged (impersonal condition) on f0 max.
+
+```{r}
+print(count)
+```
 
 
+### Only in the second part of the experiment
+Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0maxDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0maxDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One diverged and one converged on f0 max. Both were in the impersonal condition.
+
+```{r}
+print(count)
+```
+
+## f0 SD
+
+### Across the entire experiment
+
+```{r}
+ggplot(dat, aes(turnOverall, f0sdDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0sdDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+No one seemed to converge or diverge on f0 sd.
+
+```{r}
+print(count)
+```
+
+
+### Only in the first part of the experiment
+Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0sdDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0sdDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged (in the impersonal condition) and one diverged (close condition) on f0 sd.
+
+```{r}
+print(count)
+```
+
+
+### Only in the second part of the experiment
+Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0sdDiff))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMax <- data.frame(matrix(nrow=0, ncol=4))
+names(corMax) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0sdDiff, d$turnOverall,
+                alternative="two.sided", method="pearson")
+  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMax <- corMax |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMax$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
+                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
+                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged (in the impersonal condition) and one diverged (close condition) on f0 sd.
+
+```{r}
+print(count)
+```
+
+## All participants and features (Local Convergence)
+```{r}
+print(all)
+```
+
+# Local Synchrony
+
+## f0 median
+
+### Across the entire experiment
+
+```{r}
+ggplot(dat, aes(f0med, prevf0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corMed <- data.frame(matrix(nrow=0, ncol=4))
+names(corMed) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0med, d$prevf0med,
+                alternative="two.sided", method="pearson")
+  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+                  alternative="two.sided", method="pearson")
+    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corMed <- corMed |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "convergence",
+           r > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=4))
+names(count) <- c("speaker", "direction", "mock", "real")
+
+for(s in unique(corMed$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
+                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
+                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only 3 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One converged and two diverged on f0 median. All from the impersonal condition.
+
+```{r}
+print(count)
+```
 
 
 
