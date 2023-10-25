@@ -14,11 +14,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r include=FALSE}
 library(tidyverse)
+library(lmerTest)
 
 load(paste0(here::here(), "/data/speechData.RData"))
+load(paste0(here::here(), "/data/metadata-clean.RData"))
 
-all <- data.frame(matrix(nrow=0, ncol=7))
-names(all) <- c("speaker", "direction", "mock", "real", "condition", "feature", "section")
+all <- data.frame(matrix(nrow=0, ncol=8))
+names(all) <- c("speaker", "type", "direction", "mock", "real", "condition", "feature", "section")
 ```
 
 # Local convergence
@@ -36,36 +38,37 @@ ggplot(dat, aes(turnOverall, f0medDiff))+
 ```
 
 ```{r}
-corMed <- data.frame(matrix(nrow=0, ncol=4))
-names(corMed) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
   c <- cor.test(d$f0medDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMed <- corMed |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMed$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
-                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
-                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -100,36 +103,37 @@ ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0medDiff))+
 ```
 
 ```{r}
-corMed <- data.frame(matrix(nrow=0, ncol=4))
-names(corMed) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
   c <- cor.test(d$f0medDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMed <- corMed |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMed$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
-                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
-                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -165,8 +169,8 @@ ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0medDiff))+
 ```
 
 ```{r}
-corMed <- data.frame(matrix(nrow=0, ncol=4))
-names(corMed) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
@@ -174,29 +178,30 @@ for(s in unique(dat$speaker)){
   
   c <- cor.test(d$f0medDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMed <- corMed |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMed$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
-                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
-                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -232,36 +237,37 @@ ggplot(dat, aes(turnOverall, f0maxDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
   c <- cor.test(d$f0maxDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -294,36 +300,37 @@ ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0maxDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
   c <- cor.test(d$f0maxDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -358,8 +365,8 @@ ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0maxDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
@@ -367,29 +374,30 @@ for(s in unique(dat$speaker)){
   
   c <- cor.test(d$f0maxDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -424,36 +432,37 @@ ggplot(dat, aes(turnOverall, f0sdDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
   c <- cor.test(d$f0sdDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -486,36 +495,37 @@ ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0sdDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
   c <- cor.test(d$f0sdDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -550,8 +560,8 @@ ggplot(dat |> filter(task=="Diapix"), aes(turnOverall, f0sdDiff))+
 ```
 
 ```{r}
-corMax <- data.frame(matrix(nrow=0, ncol=4))
-names(corMax) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
@@ -559,29 +569,30 @@ for(s in unique(dat$speaker)){
   
   c <- cor.test(d$f0sdDiff, d$turnOverall,
                 alternative="two.sided", method="pearson")
-  corMax[nrow(corMax)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
     c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
                   alternative="two.sided", method="pearson")
-    corMax[nrow(corMax)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMax <- corMax |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMax$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMax$direction[corMax$speaker==s & corMax$type=="real"],
-                             sum(!is.na(corMax$sign[corMax$speaker==s & corMax$type=="mock"])==TRUE),
-                             ifelse(corMax$sign[corMax$speaker==s & corMax$type=="real"]=="*", "yes", "no"))
+                             "convergence",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -604,11 +615,6 @@ One converged (in the impersonal condition) and one diverged (close condition) o
 print(count)
 ```
 
-## All participants and features (Local Convergence)
-```{r}
-print(all)
-```
-
 # Local Synchrony
 
 ## f0 median
@@ -623,36 +629,37 @@ ggplot(dat, aes(f0med, prevf0med))+
 ```
 
 ```{r}
-corMed <- data.frame(matrix(nrow=0, ncol=4))
-names(corMed) <- c("speaker", "type", "r", "p")
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
   c <- cor.test(d$f0med, d$prevf0med,
                 alternative="two.sided", method="pearson")
-  corMed[nrow(corMed)+1,] <- c(s, "real", c$estimate, c$p.value)
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
                   alternative="two.sided", method="pearson")
-    corMed[nrow(corMed)+1,] <- c(s, "mock", c$estimate, c$p.value)
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
 }
 
-corMed <- corMed |> 
+corS <- corS |> 
   mutate(sign = ifelse(p < 0.05, "*", NA),
          direction = case_when(
-           r < 0 ~ "convergence",
-           r > 0 ~ "divergence"))
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=4))
-names(count) <- c("speaker", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
 
-for(s in unique(corMed$speaker)){
+for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
-                             corMed$direction[corMed$speaker==s & corMed$type=="real"],
-                             sum(!is.na(corMed$sign[corMed$speaker==s & corMed$type=="mock"])==TRUE),
-                             ifelse(corMed$sign[corMed$speaker==s & corMed$type=="real"]=="*", "yes", "no"))
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
 
 count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
@@ -667,13 +674,637 @@ count <- count |>
 all <- rbind(all, count)
 ```
 
-Below we see the only 3 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+Below we see the 4 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
 
-One converged and two diverged on f0 median. All from the impersonal condition.
+One converged (impersonal condition) and three diverged (2 in impersonal and 1 in close condition.)
 
 ```{r}
 print(count)
 ```
+
+### Only in the first part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(f0med, prevf0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0med, d$prevf0med,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 4 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One in the close condition synchronized and two in the close condition desynchronized. One in the impersonal condition desynchronized.
+
+```{r}
+print(count)
+```
+
+### Only in the second part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(f0med, prevf0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0med, d$prevf0med,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 3 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+All three desynchronized. One in the close condition and two in the impersonal condition.
+
+```{r}
+print(count)
+```
+
+## f0 max
+
+### Across the entire experiment
+
+```{r}
+ggplot(dat, aes(f0max, prevf0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0max, d$prevf0max,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 8 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+All desynchronized. Two in the close condition and six in the impersonal condition.
+
+```{r}
+print(count)
+```
+
+### Only in the first part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(f0max, prevf0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0max, d$prevf0max,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the only speaker whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+She was in the impersonal condition and desynchronized.
+
+```{r}
+print(count)
+```
+
+### Only in the second part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(f0max, prevf0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0max, d$prevf0max,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 3 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+All desynchronized, one in the close and two in the impersonal condition.
+
+```{r}
+print(count)
+```
+
+## f0 SD
+
+### Across the entire experiment
+
+```{r}
+ggplot(dat, aes(f0sd, prevf0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- cor.test(d$f0sd, d$prevf0sd,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 5 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+One synchronized (close condition). Four desynchronized (two close and two impersonal condition).
+
+```{r}
+print(count)
+```
+
+### Only in the first part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Lists"), aes(f0sd, prevf0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- cor.test(d$f0sd, d$prevf0sd,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+Both desynchronized and were in the close condition.
+
+```{r}
+print(count)
+```
+
+### Only in the second part of the experiment
+
+```{r}
+ggplot(dat |> filter(task=="Diapix"), aes(f0sd, prevf0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~speaker)
+```
+
+```{r}
+corS <- data.frame(matrix(nrow=0, ncol=4))
+names(corS) <- c("speaker", "type", "r", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
+  
+  c <- cor.test(d$f0sd, d$prevf0sd,
+                alternative="two.sided", method="pearson")
+  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
+  
+  for(i in 1:10){
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+                  alternative="two.sided", method="pearson")
+    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
+  }
+}
+
+corS <- corS |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           r < 0 ~ "synchrony",
+           r > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(corS$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             corS$direction[corS$speaker==s & corS$type=="real"],
+                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
+                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+all <- rbind(all, count)
+```
+
+Below we see the 4 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
+
+All desynchronized -- two in the close and two in the impersonal condition.
+
+```{r}
+print(count)
+```
+
+# All effects
+
+```{r}
+print(all)
+```
+
+Most effects were when we take the entire experiment. But a considerable number of effects in each section too.
+(Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
+```{r}
+table(all$section)
+table(paste(all$section, all$type))
+```
+
+There is a similar number of divergence and convergence effects. But there was almost no synchrony and a lot of dyssynchrony.
+```{r}
+table(all$direction)
+```
+
+There was roughly the same number of effects on each feature.
+```{r}
+table(all$feature)
+table(paste(all$feature, all$direction[all$direction!="dyssynchrony"]))
+```
+
+When a given speaker shows an effect, they more likely also show other effects. But most often, each speaker showed only 2 effects. Some speakers also only showed 1 effect.
+```{r}
+sort(table(all$speaker))
+hist(table(all$speaker))
+```
+
+
+# Exploring relationships between effects above and questionnaire scores
+
+## Convergence
+
+```{r}
+d <- all |> 
+  filter(type == "convergence") |> 
+  select(-condition)
+d <- merge(d, m, by="speaker", all=TRUE) |> 
+  mutate(real = ifelse(is.na(real), "no", real),
+         direction = ifelse(is.na(direction), "no", direction),
+         type = ifelse(is.na(type), "convergence", type)) |> 
+  mutate_at(c("real", "direction", "type"), as.factor) 
+```
+
+Condition: no effect
+```{r}
+summary(glmer(real ~ condition + (1|speaker), d, family=binomial))
+```
+
+Scores on questionnaire about perception of partner: no effect
+```{r}
+summary(glmer(real ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
+```
+
+BFI scores: no effect, BUT openness, agreeableness, neuroticism not converging.
+```{r}
+summary(glmer(real ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
+```
+
+
+## Synchrony
+
+```{r}
+d <- all |> 
+  filter(type == "synchrony") |> 
+  select(-condition)
+d <- merge(d, m, by="speaker", all=TRUE) |> 
+  mutate(real = ifelse(is.na(real), "no", real),
+         direction = ifelse(is.na(direction), "no", direction),
+         type = ifelse(is.na(type), "synchrony", type)) |> 
+  mutate_at(c("real", "direction", "type"), as.factor) 
+```
+
+Condition: more (dys)synchrony in impersonal condition
+```{r}
+summary(glmer(real ~ condition + (1|speaker), d, family=binomial))
+```
+
+Scores on questionnaire about perception of partner:
+* more (dys)synchrony when participants rate higher on closeness
+(model with similarity didn't converge)
+```{r}
+summary(glmer(real ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
+```
+
+BFI scores:
+* more (dys)synchrony when participants rate lower on extraversion
+```{r}
+summary(glmer(real ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
+```
+
+
+
 
 
 
@@ -682,4 +1313,3 @@ print(count)
 ```{r}
 sessionInfo()
 ```
-
