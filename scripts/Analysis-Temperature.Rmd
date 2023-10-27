@@ -17,6 +17,8 @@ library(tidyverse)
 library(lmerTest)
 
 load(paste0(here::here(), "/data/tempData.RData"))
+load(paste0(here::here(), "/data/metadata-clean.RData"))
+meta <- m
 folderFig1 <- paste0(here::here(), "/figures/temperature/tempChange/")
 folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
 ```
@@ -26,6 +28,8 @@ folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
 * In the models of temperature change across time, I originally wanted to add `room temperature` as a predictor to account for the increasing room temperature. However, there is high collinearity between `room temperature` and `time`, so the models don't make sense. Hence, only `time` is kept.
 
 * There are 2 conditions: `close`, where in the first task of the experiment the participants talked about increasingly intimate questions (adapted from the Relationship Closeness Induction Task), and `impersonal`, where they talked about impersonal questions.
+
+* The check of residuals of logistic models below, was done following: https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html
 
 # Individual plots
 
@@ -53,6 +57,22 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 
 ```{r}
 # for(roi in unique(dat$ROI)){
+#   d <- dat |>
+#     filter(ROI==roi) |> 
+#     group_by(speaker) |>
+#     filter(length(unique(task))==2) |>
+#     ungroup()
+#     ggplot(d, aes(time, temperature, color=task))+
+#       geom_point()+
+#       geom_smooth(method="lm")+
+#       facet_wrap(~speaker, scales = "free_x")+
+#       ggtitle(roi)
+#     ggsave(paste0(folderFig1, roi, "PerTask.png"), width=3000, height=2600, units = "px")
+}
+```
+
+```{r}
+# for(roi in unique(dat$ROI)){
 #   ggplot(dat |> filter(ROI==roi, grepl("-A", speaker)), aes(time, tempDiff))+
 #     geom_point()+
 #     geom_smooth(method="lm")+
@@ -73,7 +93,207 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 
 # Temperature change across time and across conditions
 
-## Nose
+## Per speaker
+
+```{r}
+all <- data.frame(matrix(nrow=0, ncol=7))
+names(all) <- c("speaker", "condition", "ROI", "direction", "t", "p", "section")
+```
+
+```{r}
+for(s in unique(dat$speaker)){
+  for(r in unique(dat$ROI)){
+    d <- dat |> filter(speaker==s, ROI==r)
+    if(nrow(d)<=1){next}
+    c <- tidy(lm(temperature ~ time, d))
+    summary(lm(temperature ~ time, d))
+    all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                           ifelse(c$estimate[2] < 0, "negative", "positive"),
+                           c$statistic[2],
+                           c$p.value[2],
+                           "entireExp")
+    for(section in c("Lists", "Diapix")){
+      d <- dat |> filter(speaker==s, ROI==r, task==section)
+      if(nrow(d)==0){next}
+      c <- tidy(lm(temperature ~ time, d))
+      all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                             ifelse(c$estimate[2] < 0, "negative", "positive"),
+                             c$statistic[2],
+                             c$p.value[2],
+                             section)
+    }
+  }
+}
+
+all <- all |> 
+  mutate_at(c("direction", "speaker", "condition", "section", "ROI"), as.factor) |> 
+  mutate_at(c("t", "p"), as.numeric) |> 
+  mutate(sign = ifelse(p < 0.05, "yes", "ns"))
+```
+
+There were more significant changes within each section than when the entire experiment period was taken. This seems meaningful, since the entire experiment has more data points than each section individually.
+```{r}
+table(paste(all$sign, all$section))
+```
+
+
+But the direction of temperature change was always the same (mostly positive) in each section.
+
+The individual plots divided per 1st vs 2nd part of experiment show that most participants had a linear change across the experiment, but not all.
+```{r}
+summary(glmer(direction ~ section + (1|speaker), all |> filter(section!="entireExp"), family=binomial))
+```
+
+### Questionnaire scores as predictors?
+
+Use dataset with effects relating to each task
+```{r}
+d <- merge(all |> 
+             filter(section != "entireExp") |> 
+             select(-condition) |> 
+             mutate_at("sign", as.factor),
+           meta, by="speaker")
+```
+
+#### Nose
+
+There were more significant nose temperature change effects in the impersonal condition.
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+
+# the residuals seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+#### Eyes
+
+No effect of condition
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+
+# the residuals seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+#### Forehead
+
+No effect of condition
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+# the residuals seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+Openness seemed to predict *less* significant temperature change in the eyes.
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+# residuals of the openness model: seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+#### Cheeks
+
+No effect of condition
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+Participants that felt more similar to their partner tended *less* to increase cheek temperature
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+
+# residuals of the openness model: seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+
+## All speakers together
+
+### Nose
 
 Nose got warmer across time, no difference between conditions.
 
@@ -94,7 +314,7 @@ summary(m1 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker), 
 anova(m0, m1)
 ```
 
-## Forehead
+### Forehead
 
 Forehead got warmer across time, no difference between conditions.
 
@@ -114,7 +334,7 @@ summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> fil
 anova(m0, m1)
 ```
 
-## Eyes
+### Eyes
 
 Eyes got warmer across time, no difference between conditions.
 
@@ -135,7 +355,7 @@ summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> fil
 anova(m0, m1)
 ```
 
-## Cheeks
+### Cheeks
 
 Cheeks did not change temperature.
 
