@@ -17,9 +17,11 @@ library(tidyverse)
 library(lmerTest)
 library(DHARMa)
 library(broom)
+library(parsnip)
 
 load(paste0(here::here(), "/data/speechData.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
+load(paste0(here::here(), "/data/individualTemp.RData"))
 meta <- m
 
 all <- data.frame(matrix(nrow=0, ncol=8))
@@ -1203,6 +1205,196 @@ All desynchronized -- two in the close and two in the impersonal condition.
 print(count)
 ```
 
+# All effects
+
+```{r}
+print(all)
+```
+
+Most effects were when we take the entire experiment. But a considerable number of effects in each section too.
+(Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
+```{r}
+table(all$section)
+table(paste(all$section, all$type))
+```
+
+There is a similar number of divergence and convergence effects. But there was almost no synchrony and a lot of dyssynchrony.
+```{r}
+table(all$direction)
+```
+
+There was roughly the same number of effects on each feature.
+```{r}
+table(all$feature)
+table(paste(all$feature, all$direction[all$direction!="dyssynchrony"]))
+```
+
+When a given speaker shows an effect, they more likely also show other effects. But most often, each speaker showed only 2 effects. Some speakers also only showed 1 effect.
+```{r}
+sort(table(all$speaker))
+hist(table(all$speaker))
+```
+
+# Exploring relationships between effects above and questionnaire scores
+
+## Convergence
+
+```{r}
+d <- all |> 
+  filter(type == "convergence") |> 
+  select(-condition)
+d <- merge(d, meta, by="speaker", all=TRUE) |> 
+  mutate(real = ifelse(is.na(real), "no", real),
+         direction = ifelse(is.na(direction), "no", direction),
+         type = ifelse(is.na(type), "convergence", type)) |> 
+  mutate_at(c("real", "direction", "type"), as.factor)
+d$direction <- relevel(d$direction, ref="no")
+```
+
+Condition: no effect
+```{r}
+summary(glmer(real ~ condition + (1|speaker), d, family=binomial))
+```
+
+Scores on questionnaire about perception of partner: no effect
+```{r}
+summary(glmer(real ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
+```
+
+BFI scores: no effect, BUT openness, agreeableness, neuroticism not converging.
+```{r}
+summary(glmer(real ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
+```
+
+### Direction of the effect (convergence vs divergence)
+
+Condition: no effect
+```{r}
+m <- multinom_reg() |> 
+  fit(direction ~ condition, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+```
+
+Questionnaire scores: no effects
+```{r}
+m <- multinom_reg() |> 
+  fit(direction ~ closeness, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ similarity, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ likeability, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ becomeFriends, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+```
+
+BFI scores: no effects
+```{r}
+m <- multinom_reg() |> 
+  fit(direction ~ extraversion, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ openness, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ agreeableness, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ conscientiousness, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+
+m <- multinom_reg() |> 
+  fit(direction ~ neuroticism, data=d)
+tidy(m, exponentiate=TRUE, conf.int=TRUE)
+```
+
+## Synchrony
+
+```{r}
+d <- all |> 
+  filter(type == "synchrony") |> 
+  select(-condition)
+d <- merge(d, meta, by="speaker", all=TRUE) |> 
+  mutate(real = ifelse(is.na(real), "no", real),
+         direction = ifelse(is.na(direction), "no", direction),
+         type = ifelse(is.na(type), "synchrony", type)) |> 
+  mutate_at(c("real", "direction", "type"), as.factor) 
+```
+
+Condition: more (dys)synchrony in impersonal condition
+```{r}
+summary(m <- glmer(real ~ condition + (1|speaker), d, family=binomial))
+
+# check residuals of the model that showed an effect
+simulateResiduals(m, plot = T)
+```
+
+Scores on questionnaire about perception of partner:
+* potentially more (dys)synchrony when participants rate higher on closeness, but the residuals indicate it's not a good model
+
+(model with similarity didn't converge)
+```{r}
+summary(m <- glmer(real ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
+
+# check residuals of the model that showed an effect
+simulationOutput <- simulateResiduals(m, plot = T)
+```
+
+BFI scores:
+* potentially more (dys)synchrony when participants rate lower on extraversion, but the residuals indicate it's not a good model
+```{r}
+summary(m <- glmer(real ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
+
+# check residuals of the model that showed an effect
+simulationOutput <- simulateResiduals(m, plot = T)
+```
+
+(It doesn't make sense to analyze the direction of the effect here---snychrony vs. dyssynchrony---because there were almost no synchrony effects.)
+
+# Temperature & Speech
+
+## Convergence
+
+### Across entire experiment
+
+```{r}
+t <- indTemp |> 
+  filter(section == "entireExp") |> 
+  pivot_wider(names_from = ROI, values_from = effect, id_cols = speaker)
+
+s <- all |> 
+  filter(section=="entireExp", type=="convergence") |> 
+  pivot_wider(names_from = direction, values_from = feature) |> 
+  select(-c("type", "real", "mock"))
+
+st <- merge(s, t, by="speaker", all=TRUE)
+```
+
+
+# REGRESSION
 
 # Local convergence: REGRESSION
 
@@ -2516,178 +2708,6 @@ for(c in 1:nrow(all)){
 Conclusion: all effects that show up with the regression also show up with the correlation; but the opposite isn't true.
 
 Note that the regression method still followed the same logic as the correlation method (also checking for robustness with 10 data points randomly ordered).
-
-# All effects
-
-```{r}
-print(all)
-```
-
-Most effects were when we take the entire experiment. But a considerable number of effects in each section too.
-(Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
-```{r}
-table(all$section)
-table(paste(all$section, all$type))
-```
-
-There is a similar number of divergence and convergence effects. But there was almost no synchrony and a lot of dyssynchrony.
-```{r}
-table(all$direction)
-```
-
-There was roughly the same number of effects on each feature.
-```{r}
-table(all$feature)
-table(paste(all$feature, all$direction[all$direction!="dyssynchrony"]))
-```
-
-When a given speaker shows an effect, they more likely also show other effects. But most often, each speaker showed only 2 effects. Some speakers also only showed 1 effect.
-```{r}
-sort(table(all$speaker))
-hist(table(all$speaker))
-```
-
-# Exploring relationships between effects above and questionnaire scores
-
-## Convergence
-
-```{r}
-d <- all |> 
-  filter(type == "convergence") |> 
-  select(-condition)
-d <- merge(d, meta, by="speaker", all=TRUE) |> 
-  mutate(real = ifelse(is.na(real), "no", real),
-         direction = ifelse(is.na(direction), "no", direction),
-         type = ifelse(is.na(type), "convergence", type)) |> 
-  mutate_at(c("real", "direction", "type"), as.factor)
-d$direction <- relevel(d$direction, ref="no")
-```
-
-Condition: no effect
-```{r}
-summary(glmer(real ~ condition + (1|speaker), d, family=binomial))
-```
-
-Scores on questionnaire about perception of partner: no effect
-```{r}
-summary(glmer(real ~ closeness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
-summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
-summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
-```
-
-BFI scores: no effect, BUT openness, agreeableness, neuroticism not converging.
-```{r}
-summary(glmer(real ~ extraversion + (1|speaker), d, family=binomial))
-summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
-```
-
-### Direction of the effect (convergence vs divergence)
-
-Condition: no effect
-```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ condition, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-```
-
-Questionnaire scores: no effects
-```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ closeness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ similarity, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ likeability, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ becomeFriends, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-```
-
-BFI scores: no effects
-```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ extraversion, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ openness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ agreeableness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ conscientiousness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ neuroticism, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-```
-
-## Synchrony
-
-```{r}
-d <- all |> 
-  filter(type == "synchrony") |> 
-  select(-condition)
-d <- merge(d, meta, by="speaker", all=TRUE) |> 
-  mutate(real = ifelse(is.na(real), "no", real),
-         direction = ifelse(is.na(direction), "no", direction),
-         type = ifelse(is.na(type), "synchrony", type)) |> 
-  mutate_at(c("real", "direction", "type"), as.factor) 
-```
-
-Condition: more (dys)synchrony in impersonal condition
-```{r}
-summary(m <- glmer(real ~ condition + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulateResiduals(m, plot = T)
-```
-
-Scores on questionnaire about perception of partner:
-* potentially more (dys)synchrony when participants rate higher on closeness, but the residuals indicate it's not a good model
-
-(model with similarity didn't converge)
-```{r}
-summary(m <- glmer(real ~ closeness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
-summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
-summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulationOutput <- simulateResiduals(m, plot = T)
-```
-
-BFI scores:
-* potentially more (dys)synchrony when participants rate lower on extraversion, but the residuals indicate it's not a good model
-```{r}
-summary(m <- glmer(real ~ extraversion + (1|speaker), d, family=binomial))
-summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulationOutput <- simulateResiduals(m, plot = T)
-```
-
-(It doesn't make sense to analyze the direction of the effect here---snychrony vs. dyssynchrony---because there were almost no synchrony effects.)
-
-
-
 
 # Session Info
 

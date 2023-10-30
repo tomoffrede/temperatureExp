@@ -15,6 +15,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r include=FALSE}
 library(tidyverse)
 library(lmerTest)
+library(broom)
+library(DHARMa)
+library(parsnip)
 
 load(paste0(here::here(), "/data/tempData.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
@@ -68,7 +71,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 #       facet_wrap(~speaker, scales = "free_x")+
 #       ggtitle(roi)
 #     ggsave(paste0(folderFig1, roi, "PerTask.png"), width=3000, height=2600, units = "px")
-}
+# }
 ```
 
 ```{r}
@@ -106,7 +109,6 @@ for(s in unique(dat$speaker)){
     d <- dat |> filter(speaker==s, ROI==r)
     if(nrow(d)<=1){next}
     c <- tidy(lm(temperature ~ time, d))
-    summary(lm(temperature ~ time, d))
     all[nrow(all)+1,] <- c(s, unique(d$condition), r,
                            ifelse(c$estimate[2] < 0, "negative", "positive"),
                            c$statistic[2],
@@ -128,14 +130,22 @@ for(s in unique(dat$speaker)){
 all <- all |> 
   mutate_at(c("direction", "speaker", "condition", "section", "ROI"), as.factor) |> 
   mutate_at(c("t", "p"), as.numeric) |> 
-  mutate(sign = ifelse(p < 0.05, "yes", "ns"))
+  mutate(sign = ifelse(p < 0.05, "yes", "ns"),
+         effect = case_when(
+          sign == "yes" & direction == "positive" ~ "increase",
+          sign == "yes" & direction == "negative" ~ "decrease",
+          sign == "ns" ~ "ns",
+         ))
+
+# # save it
+# indTemp <- all
+# save(indTemp, file=paste0(here::here(), "/data/individualTemp.RData"))
 ```
 
 There were more significant changes within each section than when the entire experiment period was taken. This seems meaningful, since the entire experiment has more data points than each section individually.
 ```{r}
 table(paste(all$sign, all$section))
 ```
-
 
 But the direction of temperature change was always the same (mostly positive) in each section.
 
@@ -377,9 +387,90 @@ anova(m0, m1)
 
 # Temperature difference across time (convergence)
 
-**There was no robust convergence or divergence in any ROI.** Although there seemed to be a trend in some ROIs, the effect disappears completely when we add random slopes to the models.
+# Per dyad
 
-## Nose
+```{r}
+all <- data.frame(matrix(nrow=0, ncol=7))
+names(all) <- c("dyad", "condition", "ROI", "direction", "t", "p", "section")
+```
+
+```{r}
+for(d in unique(dat$dyad)){
+  for(r in unique(dat$ROI)){
+    dd <- dat |> 
+      filter(speaker==paste0(d, "-A"), ROI==r)
+    if(nrow(dd)<=1){next}
+    if(all(is.na(dd$tempDiff))){next}
+    c <- tidy(lm(tempDiff ~ time, dd))
+    all[nrow(all)+1,] <- c(d, unique(dd$condition[dd$dyad==d]), r,
+                           ifelse(c$estimate[2] < 0, "convergence", "divergence"),
+                           c$statistic[2],
+                           c$p.value[2],
+                           "entireExp")
+    for(section in c("Lists", "Diapix")){
+      dd <- dat |> 
+        filter(speaker==paste0(d, "-A"), ROI==r, task==section)
+      if(nrow(dd)<=1){next}
+      if(all(is.na(dd$tempDiff))){next}
+      c <- tidy(lm(tempDiff ~ time, dd))
+      all[nrow(all)+1,] <- c(d, unique(dd$condition[dd$dyad==d]), r,
+                             ifelse(c$estimate[2] < 0, "convergence", "divergence"),
+                             c$statistic[2],
+                             c$p.value[2],
+                             section)
+    }
+  }
+}
+
+all <- all |> 
+  mutate_at(c("t", "p"), as.numeric) |> 
+  mutate(sign = ifelse(p<0.05, "yes", "ns"),
+         effect = case_when(
+    sign == "yes" & direction == "convergence" ~ "convergence",
+    sign == "yes" & direction == "divergence" ~ "divergence",
+    sign == "ns" ~ "ns"
+  )) |> 
+  mutate_at(c("direction", "dyad", "condition", "section", "ROI", "sign", "effect"), as.factor)
+all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
+all$ROI <- factor(all$ROI, levels=c("Forehead", "Eyes", "Nose", "Cheeks"))
+```
+
+Some dyads converged (or diverged) on some ROIs. Most of the effects were only significant when taking the entire experiment's data. BUT many people tended to converge on eye temperature in the first part of the experiment.
+```{r}
+table(all$sign)
+ggplot(all, aes(ROI))+
+  geom_bar()+
+  facet_grid(effect~section)+
+  ggtitle("Significance of effects of con-/divergence in ROIs")
+```
+
+
+```{r}
+ggplot(all |> filter(effect!="ns", section=="entireExp"), aes(ROI))+
+  geom_bar()+
+  facet_wrap(condition~effect)+
+  ggtitle("Significant effects per condition, ROI & type")
+```
+
+Neither the direction of the effect (con- vs. divergence) nor the presence of an effect (significant or not) is different between conditions.
+```{r}
+summary(glmer(effect ~ condition + (1|dyad), all |> filter(effect!="ns"), family=binomial))
+summary(glmer(sign ~ condition + (1|dyad), all, family=binomial))
+```
+
+Dyads that show an effect in one ROI are likely to show an effect in other ROIs.
+```{r}
+sort(table(all$dyad[all$sign!="ns" & all$section=="entireExp"]))
+hist(table(all$dyad[all$sign!="ns" & all$section=="entireExp"]), main="Number of effects shown by each given dyad", xlab="Number of effects (eg, in different ROIs)")
+```
+
+(I'd like to explore whether dyads converge more/less using questionnaire scores as predictors, but I'm not sure how to do that, since the questionnaires were 1 per speaker, and the convergence measure is 1 per dyad.)
+
+## All speakers together
+
+**There was no robust convergence or divergence in any ROI when all speakers' data are pulled together.** Although there seemed to be a trend in some ROIs, the effect disappears completely when we add random slopes to the models.
+
+### Nose
 
 No con-/divergence in nose temperature.
 
@@ -399,7 +490,7 @@ summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(RO
 anova(m0, m1)
 ```
 
-## Forehead
+### Forehead
 
 No con-/divergence in forehead temperature.
 
@@ -419,7 +510,7 @@ summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(RO
 anova(m0, m1)
 ```
 
-## Eyes
+### Eyes
 
 No con-/divergence in eye temperature.
 
@@ -439,7 +530,7 @@ summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(RO
 anova(m0, m1)
 ```
 
-## Cheeks
+### Cheeks
 
 No con-/divergence in cheek temperature.
 
@@ -458,3 +549,10 @@ summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(RO
 
 anova(m0, m1)
 ```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+
