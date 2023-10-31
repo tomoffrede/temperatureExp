@@ -143,6 +143,25 @@ for(i in 1:nrow(dat)){
   }
 }
 
+datChange <- data.frame(matrix(nrow=0, ncol=6))
+names(datChange) <- c("speaker", "dyad", "ROI", "tempChangeLists", "tempChangeDiapix", "tempChangeEntireExp") 
+
+for(s in unique(dat$speaker)){
+  for(r in unique(dat$ROI)){
+    minL <- min(dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Lists"])
+    minD <- min(dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Diapix"])
+    maxL <- max(dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Lists"])
+    maxD <- max(dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Diapix"])
+    tL <- ifelse(is.infinite(maxL-minL), NA, abs(maxL-minL))
+    tD <- ifelse(is.infinite(maxD-minD), NA, abs(maxD-minD))
+    tE <- ifelse(is.infinite(maxD-minL), NA, abs(maxD-minL))
+    datChange[nrow(datChange)+1,] <- c(s, substr(s, 1, 3), r, tL, tD, tE)
+  }
+}
+
 dat <- merge(dat, m, by=c("speaker", "stage"))
+datChange <- merge(datChange, m |> select(-c(stage, roomTemp)) |> filter(!duplicated(speaker)), by="speaker") |> 
+  mutate_at(c("tempChangeLists", "tempChangeDiapix", "tempChangeEntireExp"), as.numeric)
 
 save(dat, file=paste0(here::here(), "/data/tempData.RData"))
+save(datChange, file=paste0(here::here(), "/data/tempDataChange.RData"))
