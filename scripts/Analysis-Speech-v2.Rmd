@@ -1376,21 +1376,24 @@ simulationOutput <- simulateResiduals(m, plot = T)
 
 # Temperature & Speech
 
-## Convergence
-
-### Across entire experiment
+There are so few speech effects that it doesn't make sense to try to do an analysis on speech convergence ~ temperature.
 
 ```{r}
-t <- indTemp |> 
-  filter(section == "entireExp") |> 
-  pivot_wider(names_from = ROI, values_from = effect, id_cols = speaker)
+# t <- indTemp |> 
+#   filter(section == "entireExp") |> 
+#   pivot_wider(names_from = ROI, values_from = effect, id_cols = speaker)
+# 
+# s <- all |> 
+#   filter(section=="entireExp", type=="convergence") |> 
+#   pivot_wider(names_from = direction, values_from = feature) |> 
+#   select(-c("type", "real", "mock"))
+# 
+# st <- merge(s, t, by="speaker", all=TRUE) |> 
+#   mutate_at(c("speaker", "condition", "section", "divergence", "convergence", "Forehead", "Nose", "Eyes", "Cheeks"), as.factor)
+```
 
-s <- all |> 
-  filter(section=="entireExp", type=="convergence") |> 
-  pivot_wider(names_from = direction, values_from = feature) |> 
-  select(-c("type", "real", "mock"))
-
-st <- merge(s, t, by="speaker", all=TRUE)
+```{r}
+t <- indTemp[indTemp$speaker %!in% all$speaker,]
 ```
 
 
