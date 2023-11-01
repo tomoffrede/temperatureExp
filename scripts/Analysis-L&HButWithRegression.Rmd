@@ -1,0 +1,1344 @@
+---
+title: "Analysis - Comparing Correlation and Regression in L&H2011 analysis"
+author: "Tom Offrede"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This code had been used in the file `Analysis-Speech-v2.Rmd` to see if the results of the analysis following Levitan & Hirschberg 2011 would be the same if I used Pearson's correlation (the original method) or a regression.
+
+The comparison only works if you run the correlations before (can be found in the file mentioned above).
+
+```{r include=FALSE}
+library(tidyverse)
+library(lmerTest)
+library(DHARMa)
+library(broom)
+library(parsnip)
+
+load(paste0(here::here(), "/data/speechData.RData"))
+load(paste0(here::here(), "/data/metadata-clean.RData"))
+load(paste0(here::here(), "/data/individualTemp.RData"))
+meta <- m
+
+all <- data.frame(matrix(nrow=0, ncol=8))
+names(all) <- c("speaker", "type", "direction", "mock", "real", "condition", "feature", "section")
+```
+
+# REGRESSION
+
+# Local convergence: REGRESSION
+
+```{r}
+allR <- data.frame(matrix(nrow=0, ncol=8))
+names(allR) <- c("speaker", "type", "direction", "mock", "real", "condition", "feature", "section")
+```
+
+## f0 median
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0medDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0medDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0medDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+## f0 max
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0maxDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0maxDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0maxDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+## f0 SD
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0sdDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0sdDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0sdDiff ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(mockMedDiff1 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMedDiff2))){
+  c <- tidy(lm(mockMedDiff2 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff3))){
+    c <- tidy(lm(mockMedDiff3 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff4))){
+  c <- tidy(lm(mockMedDiff4 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff5))){
+    c <- tidy(lm(mockMedDiff5 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff6))){
+    c <- tidy(lm(mockMedDiff6 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff7))){
+  c <- tidy(lm(mockMedDiff7 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff8))){
+    c <- tidy(lm(mockMedDiff8 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff9))){
+    c <- tidy(lm(mockMedDiff9 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMedDiff10))){
+  c <- tidy(lm(mockMedDiff10 ~ turnOverall, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "convergence",
+           t > 0 ~ "divergence"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "convergence",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+
+# Local synchrony: REGRESSION
+
+```{r}
+allR <- data.frame(matrix(nrow=0, ncol=8))
+names(allR) <- c("speaker", "type", "direction", "mock", "real", "condition", "feature", "section")
+```
+
+## f0 median
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0med ~ prevf0med, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0med ~ mockMed1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMed2))){
+  c <- tidy(lm(f0med ~ mockMed2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed3))){
+    c <- tidy(lm(f0med ~ mockMed3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed4))){
+  c <- tidy(lm(f0med ~ mockMed4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed5))){
+    c <- tidy(lm(f0med ~ mockMed5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed6))){
+    c <- tidy(lm(f0med ~ mockMed6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed7))){
+  c <- tidy(lm(f0med ~ mockMed7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed8))){
+    c <- tidy(lm(f0med ~ mockMed8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed9))){
+    c <- tidy(lm(f0med ~ mockMed9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed10))){
+  c <- tidy(lm(f0med ~ mockMed10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0med ~ prevf0med, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0med ~ mockMed1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMed2))){
+  c <- tidy(lm(f0med ~ mockMed2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed3))){
+    c <- tidy(lm(f0med ~ mockMed3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed4))){
+  c <- tidy(lm(f0med ~ mockMed4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed5))){
+    c <- tidy(lm(f0med ~ mockMed5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed6))){
+    c <- tidy(lm(f0med ~ mockMed6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed7))){
+  c <- tidy(lm(f0med ~ mockMed7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed8))){
+    c <- tidy(lm(f0med ~ mockMed8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed9))){
+    c <- tidy(lm(f0med ~ mockMed9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed10))){
+  c <- tidy(lm(f0med ~ mockMed10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0med ~ prevf0med, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0med ~ mockMed1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMed2))){
+  c <- tidy(lm(f0med ~ mockMed2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed3))){
+    c <- tidy(lm(f0med ~ mockMed3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed4))){
+  c <- tidy(lm(f0med ~ mockMed4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed5))){
+    c <- tidy(lm(f0med ~ mockMed5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed6))){
+    c <- tidy(lm(f0med ~ mockMed6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed7))){
+  c <- tidy(lm(f0med ~ mockMed7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed8))){
+    c <- tidy(lm(f0med ~ mockMed8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed9))){
+    c <- tidy(lm(f0med ~ mockMed9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMed10))){
+  c <- tidy(lm(f0med ~ mockMed10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0median",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+## f0 max
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0max ~ prevf0max, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0max ~ mockMax1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMax2))){
+  c <- tidy(lm(f0max ~ mockMax2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax3))){
+    c <- tidy(lm(f0max ~ mockMax3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax4))){
+  c <- tidy(lm(f0max ~ mockMax4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax5))){
+    c <- tidy(lm(f0max ~ mockMax5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax6))){
+    c <- tidy(lm(f0max ~ mockMax6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax7))){
+  c <- tidy(lm(f0max ~ mockMax7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax8))){
+    c <- tidy(lm(f0max ~ mockMax8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax9))){
+    c <- tidy(lm(f0max ~ mockMax9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax10))){
+  c <- tidy(lm(f0max ~ mockMax10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0max ~ prevf0max, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0max ~ mockMax1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMax2))){
+  c <- tidy(lm(f0max ~ mockMax2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax3))){
+    c <- tidy(lm(f0max ~ mockMax3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax4))){
+  c <- tidy(lm(f0max ~ mockMax4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax5))){
+    c <- tidy(lm(f0max ~ mockMax5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax6))){
+    c <- tidy(lm(f0max ~ mockMax6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax7))){
+  c <- tidy(lm(f0max ~ mockMax7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax8))){
+    c <- tidy(lm(f0max ~ mockMax8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax9))){
+    c <- tidy(lm(f0max ~ mockMax9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax10))){
+  c <- tidy(lm(f0max ~ mockMax10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0max ~ prevf0max, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0max ~ mockMax1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockMax2))){
+  c <- tidy(lm(f0max ~ mockMax2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax3))){
+    c <- tidy(lm(f0max ~ mockMax3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax4))){
+  c <- tidy(lm(f0max ~ mockMax4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax5))){
+    c <- tidy(lm(f0max ~ mockMax5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax6))){
+    c <- tidy(lm(f0max ~ mockMax6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax7))){
+  c <- tidy(lm(f0max ~ mockMax7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax8))){
+    c <- tidy(lm(f0max ~ mockMax8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax9))){
+    c <- tidy(lm(f0max ~ mockMax9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockMax10))){
+  c <- tidy(lm(f0max ~ mockMax10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0max",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+## f0 SD
+
+### Entire experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s)
+  c <- tidy(lm(f0sd ~ prevf0sd, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0sd ~ mockSd1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockSd2))){
+  c <- tidy(lm(f0sd ~ mockSd2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd3))){
+    c <- tidy(lm(f0sd ~ mockSd3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd4))){
+  c <- tidy(lm(f0sd ~ mockSd4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd5))){
+    c <- tidy(lm(f0sd ~ mockSd5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd6))){
+    c <- tidy(lm(f0sd ~ mockSd6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd7))){
+  c <- tidy(lm(f0sd ~ mockSd7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd8))){
+    c <- tidy(lm(f0sd ~ mockSd8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd9))){
+    c <- tidy(lm(f0sd ~ mockSd9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd10))){
+  c <- tidy(lm(f0sd ~ mockSd10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "entireExp") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only first part of experiment
+
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Lists")
+  c <- tidy(lm(f0sd ~ prevf0sd, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0sd ~ mockSd1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockSd2))){
+  c <- tidy(lm(f0sd ~ mockSd2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd3))){
+    c <- tidy(lm(f0sd ~ mockSd3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd4))){
+  c <- tidy(lm(f0sd ~ mockSd4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd5))){
+    c <- tidy(lm(f0sd ~ mockSd5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd6))){
+    c <- tidy(lm(f0sd ~ mockSd6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd7))){
+  c <- tidy(lm(f0sd ~ mockSd7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd8))){
+    c <- tidy(lm(f0sd ~ mockSd8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd9))){
+    c <- tidy(lm(f0sd ~ mockSd9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd10))){
+  c <- tidy(lm(f0sd ~ mockSd10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Lists") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+### Only second part of experiment
+
+```{r}
+eff <- data.frame(matrix(nrow=0, ncol=4))
+names(eff) <- c("speaker", "type", "t", "p")
+
+for(s in unique(dat$speaker)){
+  d <- dat |> filter(speaker==s, task=="Diapix")
+  if(nrow(d)==0){next}
+  c <- tidy(lm(f0sd ~ prevf0sd, d))
+  eff[nrow(eff)+1,] <- c(s, "real", c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0sd ~ mockSd1, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])
+  if(any(!is.na(d$mockSd2))){
+  c <- tidy(lm(f0sd ~ mockSd2, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd3))){
+    c <- tidy(lm(f0sd ~ mockSd3, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd4))){
+  c <- tidy(lm(f0sd ~ mockSd4, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd5))){
+    c <- tidy(lm(f0sd ~ mockSd5, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd6))){
+    c <- tidy(lm(f0sd ~ mockSd6, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd7))){
+  c <- tidy(lm(f0sd ~ mockSd7, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd8))){
+    c <- tidy(lm(f0sd ~ mockSd8, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd9))){
+    c <- tidy(lm(f0sd ~ mockSd9, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+  if(any(!is.na(d$mockSd10))){
+  c <- tidy(lm(f0sd ~ mockSd10, d))
+  eff[nrow(eff)+1,] <- c(s, "mock", c$statistic[2], c$p.value[2])}
+}
+
+eff <- eff |> 
+  mutate(sign = ifelse(p < 0.05, "*", NA),
+         direction = case_when(
+           t < 0 ~ "synchrony",
+           t > 0 ~ "dyssynchrony"))
+
+count <- data.frame(matrix(nrow=0, ncol=5))
+names(count) <- c("speaker", "type", "direction", "mock", "real")
+
+for(s in unique(eff$speaker)){
+  count[nrow(count)+1,] <- c(s,
+                             "synchrony",
+                             eff$direction[eff$speaker==s & eff$type=="real"],
+                             sum(!is.na(eff$sign[eff$speaker==s & eff$type=="mock"])==TRUE),
+                             ifelse(eff$sign[eff$speaker==s & eff$type=="real"]=="*", "yes", "no"))
+}
+
+count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
+
+count <- count |>
+  mutate_at("mock", as.numeric) |> 
+  arrange(mock) |> 
+  mutate(feature = "f0sd",
+         section = "Diapix") |> 
+  filter(mock <= 1, real=="yes")
+
+allR <- rbind(allR, count)
+```
+
+# Compare
+
+```{r}
+same <- c()
+for(c in 1:nrow(all)){
+  for(r in 1:nrow(allR)){
+    if(paste(all$speaker[c], all$direction[c], all$feature[c], all$section[c]) == paste(allR$speaker[r], allR$direction[r], allR$feature[r], allR$section[r])){
+      same <- c(same, paste(all$speaker[c], all$direction[c], all$feature[c], all$section[c]))
+    }
+  }
+}
+```
+
+Conclusion: all effects that show up with the regression also show up with the correlation; but the opposite isn't true.
+
+Note that the regression method still followed the same logic as the correlation method (also checking for robustness with 10 data points randomly ordered).
