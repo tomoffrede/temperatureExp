@@ -13,6 +13,7 @@ folderAll <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechD
 folderTG <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 folderSpeech <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/SpeechData/compare/"
 `%!in%` <- Negate(`%in%`)
+badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG-D", c(1, 2)), paste0("HBR-D", c(1, 2)), paste0("HBR-L", c(1, 2, 3)), paste0("HUJ-D", c(1, 2)), "KPB-D1", paste0("MJG-D", c(1, 2)), paste0("MJG-L", c(1, 2)), "OAL-D1", paste0("OAL-L", c(1, 2, 3)), paste0("OXQ-D", c(1, 2)), paste0("OXQ-L", c(1, 2, 3)), "SGB-D1", paste0("SGB-L", c(1, 2, 3)), paste0("SUK-D", c(1, 2)), "TTN-D1", paste0("TTN-L", c(1, 2, 3)), "TTY-D1", paste0("VDE-D", c(1, 2)), "ZNV-D1")
 
 TXT <- list.files(folderAll, "\\.txt", recursive = TRUE)
 TXT <- TXT[!grepl("Register", TXT)]
@@ -365,7 +366,34 @@ dat <- dat |>
            grepl("-L3", file) ~ 3,
            grepl("-D1", file) ~ 4,
            grepl("-D2", file) ~ 5,
-         )) |>
+         ),
+         fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
+  arrange(orderFile, turn, .by_group = TRUE) |> # if we end up deciding to keep multiple IPUs per turn, we need to find another way to create `turnOverall`, because this only works with one IPU per turn
+  mutate(turnOverall = 1:n()) |> 
+  ungroup()
+
+ipus <- dat |> # same as the one above but without filtering out all the 
+  group_by(speaker) |> 
+  mutate(f0meanDiff = abs(f0mean - prevf0mean),
+         f0medDiff = abs(f0med - prevf0med),
+         f0sdDiff = abs(f0sd - prevf0sd),
+         f0maxDiff = abs(f0max - prevf0max),
+         # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
+         # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
+         # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
+         # prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
+         # prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
+         # prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
+         # prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
+         # prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)
+         orderFile = case_when(
+           grepl("-L1", file) ~ 1,
+           grepl("-L2", file) ~ 2,
+           grepl("-L3", file) ~ 3,
+           grepl("-D1", file) ~ 4,
+           grepl("-D2", file) ~ 5,
+         ),
+         fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
   arrange(orderFile, turn, .by_group = TRUE) |> # if we end up deciding to keep multiple IPUs per turn, we need to find another way to create `turnOverall`, because this only works with one IPU per turn
   mutate(turnOverall = 1:n()) |> 
   ungroup()
@@ -381,5 +409,7 @@ load(paste0(folderData, "metadata-clean.RData"))
 dat0 <- dat # in case we want to check it before it gets merged
 
 dat <- merge(dat, m, by="speaker")
+ipus <- merge(ipus, m, by="speaker")
 
 save(dat, file=paste0(folderData, "speechData.RData"))
+save(ipus, file=paste0(folderData, "speechData-allIPUs.RData"))

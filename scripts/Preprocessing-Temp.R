@@ -146,6 +146,28 @@ for(i in 1:nrow(dat)){
 datChange <- data.frame(matrix(nrow=0, ncol=6))
 names(datChange) <- c("speaker", "dyad", "ROI", "tempChangeLists", "tempChangeDiapix", "tempChangeEntireExp") 
 
+# # the following is calculating the absolute differences
+# for(s in unique(dat$speaker)){
+#   for(r in unique(dat$ROI)){
+#     minL <- dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Lists" & dat$time==min(dat$time[dat$speaker==s & dat$ROI==r & dat$task=="Lists"])]
+#     minD <- dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Diapix" & dat$time==min(dat$time[dat$speaker==s & dat$ROI==r & dat$task=="Diapix"])]
+#     maxL <- dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Lists" & dat$time==max(dat$time[dat$speaker==s & dat$ROI==r & dat$task=="Lists"])]
+#     maxD <- dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Diapix" & dat$time==max(dat$time[dat$speaker==s & dat$ROI==r & dat$task=="Diapix"])]
+#     if(length(minL)==0){minL <- Inf} # I'm dealing with the `numeric(0)` values like this for historical reasons (it's the easiest given how my code was before, which contained some mistakes)
+#     if(length(minD)==0){minD <- Inf}
+#     if(length(maxL)==0){maxL <- Inf}
+#     if(length(maxD)==0){maxD <- Inf}
+#     tL <- ifelse(!is.na(maxL-minL), abs(maxL-minL), NA)
+#     tD <- ifelse(!is.na(maxD-minD), abs(maxD-minD), NA)
+#     tE <- ifelse(!is.na(maxD-minL) & !is.infinite(maxD-minL), abs(maxD-minL), ifelse(!is.na(maxD-minD) & !is.infinite(maxD-minD), abs(maxD-minD), ifelse(!is.na(maxL-minL) & !is.infinite(maxL-minL), abs(maxL-minL), NA))) # if there's no temperature data for one of the sections, make "entireExp" the section for which there's data
+#     tL <- ifelse(tL == 0, NA, tL) # the zero change is an artifact (there was only one data point)
+#     tE <- ifelse(tE == 0, NA, tE)
+#     datChange[nrow(datChange)+1,] <- c(s, substr(s, 1, 3), r, tL, tD, tE)
+#   }
+# }
+
+
+# this is calculating the actual differences
 for(s in unique(dat$speaker)){
   for(r in unique(dat$ROI)){
     minL <- dat$temperature[dat$speaker==s & dat$ROI==r & dat$task=="Lists" & dat$time==min(dat$time[dat$speaker==s & dat$ROI==r & dat$task=="Lists"])]
@@ -156,11 +178,9 @@ for(s in unique(dat$speaker)){
     if(length(minD)==0){minD <- Inf}
     if(length(maxL)==0){maxL <- Inf}
     if(length(maxD)==0){maxD <- Inf}
-    tL <- ifelse(!is.na(maxL-minL), abs(maxL-minL), NA)
-    # tL <- abs(maxL-minL)
-    tD <- ifelse(!is.na(maxD-minD), abs(maxD-minD), NA)
-    # tD <- abs(maxD-minD)
-    tE <- ifelse(!is.na(maxD-minL) & !is.infinite(maxD-minL), abs(maxD-minL), ifelse(!is.na(maxD-minD) & !is.infinite(maxD-minD), abs(maxD-minD), ifelse(!is.na(maxL-minL) & !is.infinite(maxL-minL), abs(maxL-minL), NA))) # if there's no temperature data for one of the sections, make "entireExp" the section for which there's data
+    tL <- ifelse(!is.na(maxL-minL), (maxL-minL), NA)
+    tD <- ifelse(!is.na(maxD-minD), (maxD-minD), NA)
+    tE <- ifelse(!is.na(maxD-minL) & !is.infinite(maxD-minL), (maxD-minL), ifelse(!is.na(maxD-minD) & !is.infinite(maxD-minD), (maxD-minD), ifelse(!is.na(maxL-minL) & !is.infinite(maxL-minL), (maxL-minL), NA))) # if there's no temperature data for one of the sections, make "entireExp" the section for which there's data
     tL <- ifelse(tL == 0, NA, tL) # the zero change is an artifact (there was only one data point)
     tE <- ifelse(tE == 0, NA, tE)
     datChange[nrow(datChange)+1,] <- c(s, substr(s, 1, 3), r, tL, tD, tE)

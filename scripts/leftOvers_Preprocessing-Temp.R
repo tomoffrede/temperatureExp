@@ -93,3 +93,26 @@ for(f in files){
 #     }
 #   }
 # }
+
+###### From trying out multinomial regression and chi-square
+
+## multinomail with tidy
+d$effect <- relevel(d$effect, ref="increase")
+# d$effect <- relevel(d$effect, ref="ns")
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=d |> filter(ROI=="Nose")),
+     exponentiate=TRUE, conf.int=TRUE)
+contrasts(d$effect)
+
+
+## multinomial with nnet
+summary(nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose")))
+
+
+## chi-sq
+contingency <- table(d$effect[d$ROI=="Nose"], d$condition[d$ROI=="Nose"])
+(t <- chisq.test(contingency))
+t$stdres
+# chisq.posthoc.test::chisq.posthoc.test(contingency, method = "bonferroni")
+
+###############

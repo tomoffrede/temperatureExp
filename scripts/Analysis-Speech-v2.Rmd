@@ -20,12 +20,11 @@ library(broom)
 library(parsnip)
 
 load(paste0(here::here(), "/data/speechData.RData"))
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
 meta <- m
-
-all <- data.frame(matrix(nrow=0, ncol=8))
-names(all) <- c("speaker", "type", "direction", "mock", "real", "condition", "feature", "section")
+badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG-D", c(1, 2)), paste0("HBR-D", c(1, 2)), paste0("HBR-L", c(1, 2, 3)), paste0("HUJ-D", c(1, 2)), "KPB-D1", paste0("MJG-D", c(1, 2)), paste0("MJG-L", c(1, 2)), "OAL-D1", paste0("OAL-L", c(1, 2, 3)), paste0("OXQ-D", c(1, 2)), paste0("OXQ-L", c(1, 2, 3)), "SGB-D1", paste0("SGB-L", c(1, 2, 3)), paste0("SUK-D", c(1, 2)), "TTN-D1", paste0("TTN-L", c(1, 2, 3)), "TTY-D1", paste0("VDE-D", c(1, 2)), "ZNV-D1")
 ```
 
 # Summary of results
@@ -38,8 +37,168 @@ names(all) <- c("speaker", "type", "direction", "mock", "real", "condition", "fe
 
 * The check of residuals of logistic models below, was done following: https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html
 
+
+# Individual change -- regardless of interlocutor
+
+## f0 median
+
+* Analysis across entire experiment: f0 median goes up only in *close* condition.
+* Analysis only during question lists: f0 median doesn't change in any group.
+* Analysis only during Diapix: f0 median goes up only in the *impersonal* condition.
+
+(This was the same regardless of whether males were included.)
+
+```{r}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+# ipus <- ipus |> 
+#   filter(gender != "Male")
+```
+
+```{r}
+ggplot(ipus, aes(turn, f0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0med ~ turn : condition + (1|speaker), ipus))
+
+ggplot(ipus |> filter(task=="Lists"), aes(turn, f0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0med ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+
+ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0med))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0med ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+```
+
+Checking if f0 median changes across time in interaction with questionnaire scores:
+* Even though all the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+```{r}
+summary(m <- lmer(f0med ~ turn + (1|speaker), ipus))
+summary(m1 <- lmer(f0med ~ turn : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0med ~ turn : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0med ~ turn : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0med ~ turn : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
+
+## f0 max
+
+* Analysis across entire experiment: f0 max goes down in both conditions (though this isn't clear in the graph...)
+* Analysis only during question lists: f0 max goes down only in the *impersonal* condition.
+* Analysis only during Diapix: f0 max goes down only in the *impersonal* condition (though again, the graph seems to suggest the opposite...).
+
+(This was the same regardless of whether males were included.)
+
+```{r}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+# ipus <- ipus |>
+#   filter(gender != "Male")
+```
+
+```{r}
+ggplot(ipus, aes(turn, f0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0max ~ turn : condition + (1|speaker), ipus))
+
+ggplot(ipus |> filter(task=="Lists"), aes(turn, f0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0max ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+
+ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0max))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0max ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+```
+
+Checking if f0 SD changes across time in interaction with questionnaire scores:
+* Even though all the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+```{r}
+summary(m <- lmer(f0max ~ turn + (1|speaker), ipus))
+summary(m1 <- lmer(f0max ~ turn : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0max ~ turn : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0max ~ turn : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0max ~ turn : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
+## f0 SD
+
+* Analysis across entire experiment: f0 SD goes down in the *impersonal* condition (though this isn't clear in the graph...)
+* Analysis only during question lists: f0 SD goes down only in the *close* condition.
+* Analysis only during Diapix: f0 SD goes down in both conditions.
+
+This is weird... if SD went down in the close condition when taking each section separately, why does it not changing when taking the entire experiment?
+
+(This was the same regardless of whether males were included.)
+
+```{r}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+# ipus <- ipus |>
+#   filter(gender != "Male")
+```
+
+```{r}
+ggplot(ipus, aes(turn, f0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus))
+
+ggplot(ipus |> filter(task=="Lists"), aes(turn, f0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+
+ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0sd))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+```
+
+Checking if f0 SD changes across time in interaction with questionnaire scores:
+* Speakers that felt more *similar* to their partner tended to decrease their f0 SD *more* across the experiment.
+```{r}
+summary(m <- lmer(f0sd ~ turn + (1|speaker), ipus))
+summary(m1 <- lmer(f0sd ~ turn : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0sd ~ turn : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0sd ~ turn : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0sd ~ turn : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
+
 # Local convergence
 (following Levitan & Hirschberg 2011's method)
+
+```{r}
+all <- data.frame(matrix(nrow=0, ncol=9))
+names(all) <- c("speaker", "type", "direction", "coefficient", "mock", "real", "condition", "feature", "section")
+```
+
 
 ## f0 median
 
@@ -75,13 +234,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -92,8 +252,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -140,13 +303,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -157,8 +321,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -208,13 +375,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -225,8 +393,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -274,13 +445,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -291,8 +463,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -337,13 +512,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -354,8 +530,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -404,13 +583,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -421,8 +601,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -469,13 +652,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -486,8 +670,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -532,13 +719,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -549,8 +737,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -599,13 +790,14 @@ corS <- corS |>
            r < 0 ~ "convergence",
            r > 0 ~ "divergence"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "convergence",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -616,8 +808,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -666,13 +861,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -683,8 +879,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -729,13 +928,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -746,8 +946,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -794,13 +997,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -811,8 +1015,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0median",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -859,13 +1066,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -876,8 +1084,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -922,13 +1133,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -939,8 +1151,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -987,13 +1202,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -1004,8 +1220,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0max",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -1052,13 +1271,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -1069,8 +1289,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "entireExp") |> 
-  filter(mock <= 1, real=="yes")
+         section = "entireExp",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -1115,13 +1338,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -1132,8 +1356,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "Lists") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Lists",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -1180,13 +1407,14 @@ corS <- corS |>
            r < 0 ~ "synchrony",
            r > 0 ~ "dyssynchrony"))
 
-count <- data.frame(matrix(nrow=0, ncol=5))
-names(count) <- c("speaker", "type", "direction", "mock", "real")
+count <- data.frame(matrix(nrow=0, ncol=6))
+names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
 
 for(s in unique(corS$speaker)){
   count[nrow(count)+1,] <- c(s,
                              "synchrony",
                              corS$direction[corS$speaker==s & corS$type=="real"],
+                             corS$r[corS$speaker==s & corS$type=="real"],
                              sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
                              ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
 }
@@ -1197,8 +1425,11 @@ count <- count |>
   mutate_at("mock", as.numeric) |> 
   arrange(mock) |> 
   mutate(feature = "f0sd",
-         section = "Diapix") |> 
-  filter(mock <= 1, real=="yes")
+         section = "Diapix",
+         real = case_when(
+           mock > 1 | is.na(real) ~ "no",
+           .default = as.character(real)
+         ))
 
 all <- rbind(all, count)
 ```
@@ -1219,75 +1450,138 @@ all <- all |>
     section=="entireExp" ~ 1,
     section=="Lists" ~ 2,
     section=="Diapix" ~ 3
-    )) |> 
+  )) |> 
+  rename(entrain=real) |> 
   arrange(sectionN) |> 
   select(-sectionN)
-print(all)
+print(all |> filter(entrain=="yes"))
 ```
 
 Most effects were when we take the entire experiment. But a considerable number of effects in each section too.
 (Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
 ```{r}
-table(all$section)
-table(paste(all$section, all$type))
+table(all$section[all$entrain=="yes"])
+table(paste(all$section[all$entrain=="yes"], all$type[all$entrain=="yes"]))
 ```
 
 There is a similar number of divergence and convergence effects. But there was almost no synchrony and a lot of dyssynchrony.
 ```{r}
-table(all$direction)
+table(all$direction[all$entrain=="yes"])
 ```
 
 There was roughly the same number of effects on each feature.
 ```{r}
-table(all$feature)
-table(paste(all$feature, all$direction[all$direction!="dyssynchrony"]))
+table(all$feature[all$entrain=="yes"])
+table(paste(all$feature[all$entrain=="yes"], all$direction[all$direction!="dyssynchrony" & all$entrain=="yes"]))
 ```
 
-When a given speaker shows an effect, they more likely also show other effects. But most often, each speaker showed only 2 effects. Some speakers also only showed 1 effect.
+When a given speaker shows an effect, they more likely also show other effects.
 ```{r}
-sort(table(all$speaker))
-hist(table(all$speaker))
+sort(table(all$speaker[all$entrain=="yes"]))
+hist(table(all$speaker[all$entrain=="yes"]))
 ```
 
 # Exploring relationships between effects above and questionnaire scores
 
-## Convergence
+## Using regression coefficient
 
 ```{r}
-d <- all |> 
-  filter(type == "convergence") |> 
-  select(-condition)
-d <- merge(d, meta, by="speaker", all=TRUE) |> 
-  mutate(real = ifelse(is.na(real), "no", real),
-         direction = ifelse(is.na(direction), "no", direction),
-         type = ifelse(is.na(type), "convergence", type)) |> 
-  mutate_at(c("real", "direction", "type"), as.factor)
-d$direction <- relevel(d$direction, ref="no")
+d <- merge(all |> filter(type == "convergence") |> select(-condition),
+           meta,
+           by="speaker", all=TRUE) |> 
+  # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
+  #        direction = ifelse(is.na(direction), "no", direction),
+  #        type = ifelse(is.na(type), "convergence", type)) |> 
+  mutate_at(c("entrain", "direction", "type"), as.factor) |> 
+  mutate_at(c("coefficient"), as.numeric)
+```
+
+No effect of condition.
+```{r}
+summary(lmer(coefficient ~ condition + (1|speaker), d))
+```
+
+No effect of speakers' perception of their partner. (It was the same null result if I used `d |> filter(entrain=="yes")`, and also if we look at each section separately.)
+```{r}
+summary(lmer(coefficient ~ closeness + (1|speaker), d))
+summary(lmer(coefficient ~ similarity + (1|speaker), d))
+summary(lmer(coefficient ~ likeability + (1|speaker), d))
+summary(lmer(coefficient ~ becomeFriends + (1|speaker), d))
+
+# summary(lmer(coefficient ~ closeness + (1|speaker), d |> filter(section=="Lists")))
+# summary(lmer(coefficient ~ similarity + (1|speaker), d |> filter(section=="Lists")))
+# summary(lmer(coefficient ~ likeability + (1|speaker), d |> filter(section=="Lists")))
+# summary(lmer(coefficient ~ becomeFriends + (1|speaker), d |> filter(section=="Lists")))
+# 
+# summary(lmer(coefficient ~ closeness + (1|speaker), d |> filter(section=="Diapix")))
+# summary(lmer(coefficient ~ similarity + (1|speaker), d |> filter(section=="Diapix")))
+# summary(lmer(coefficient ~ likeability + (1|speaker), d |> filter(section=="Diapix")))
+# summary(lmer(coefficient ~ becomeFriends + (1|speaker), d |> filter(section=="Diapix")))
+# 
+# summary(lmer(coefficient ~ closeness + (1|speaker), d |> filter(section=="entireExp")))
+# summary(lmer(coefficient ~ similarity + (1|speaker), d |> filter(section=="entireExp")))
+# summary(lmer(coefficient ~ likeability + (1|speaker), d |> filter(section=="entireExp")))
+# summary(lmer(coefficient ~ becomeFriends + (1|speaker), d |> filter(section=="entireExp")))
+```
+
+No effect of speakers' perception of BFI scores.
+```{r}
+summary(lmer(coefficient ~ extraversion + (1|speaker), d))
+summary(lmer(coefficient ~ openness + (1|speaker), d))
+summary(lmer(coefficient ~ agreeableness + (1|speaker), d))
+summary(lmer(coefficient ~ conscientiousness + (1|speaker), d))
+summary(lmer(coefficient ~ neuroticism + (1|speaker), d))
+```
+
+## Using yes/no labels
+
+### Convergence
+
+```{r}
+d <- merge(all |> filter(type == "convergence") |> select(-condition),
+           meta,
+           by="speaker", all=TRUE) |> 
+  # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
+  #        direction = ifelse(is.na(direction), "no", direction),
+  #        type = ifelse(is.na(type), "convergence", type)) |> 
+  mutate_at(c("entrain", "direction", "type"), as.factor)
+# d$direction <- relevel(d$direction, ref="no")
 ```
 
 Condition: no effect
 ```{r}
-summary(glmer(real ~ condition + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ condition + (1|speaker), d, family=binomial))
 ```
 
-Scores on questionnaire about perception of partner: no effect
+Scores on questionnaire about perception of partner: no effect.
+Also no effect when we take each section separately.
 ```{r}
-summary(glmer(real ~ closeness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
-summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
-summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ becomeFriends + (1|speaker), d, family=binomial))
+
+# summary(glmer(entrain ~ closeness + (1|speaker), d |> filter(section=="Lists"), family=binomial))
+# summary(glmer(entrain ~ similarity + (1|speaker), d |> filter(section=="Lists"), family=binomial))
+# summary(glmer(entrain ~ likeability + (1|speaker), d |> filter(section=="Lists"), family=binomial))
+# summary(glmer(entrain ~ becomeFriends + (1|speaker), d |> filter(section=="Lists"), family=binomial))
+# 
+# summary(glmer(entrain ~ closeness + (1|speaker), d |> filter(section=="Diapix"), family=binomial))
+# summary(glmer(entrain ~ similarity + (1|speaker), d |> filter(section=="Diapix"), family=binomial))
+# summary(glmer(entrain ~ likeability + (1|speaker), d |> filter(section=="Diapix"), family=binomial))
+# summary(glmer(entrain ~ becomeFriends + (1|speaker), d |> filter(section=="Diapix"), family=binomial))
 ```
 
 BFI scores: no effect, BUT openness, agreeableness, neuroticism not converging.
 ```{r}
-summary(glmer(real ~ extraversion + (1|speaker), d, family=binomial))
-summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ neuroticism + (1|speaker), d, family=binomial))
 ```
 
-### Direction of the effect (convergence vs divergence)
+#### Direction of the effect (convergence vs divergence)
 
 Condition: no effect
 ```{r}
@@ -1296,7 +1590,21 @@ m <- multinom_reg() |>
 tidy(m, exponentiate=TRUE, conf.int=TRUE)
 ```
 
-Questionnaire scores: no effects
+Questionnaire scores:
+* Speakers seem to do more divergence than convergence when they feel *closer* to their partner.
+* The regression suggests people converged more when they felt more similar, but the plot shows no difference.
+
+```{r}
+ggplot(d, aes(direction, closeness))+
+  geom_boxplot()+
+  ggtitle("Direction of convergence and closeness feeling")
+
+ggplot(d, aes(direction, similarity))+
+  geom_boxplot()+
+  ggtitle("Direction of convergence and similarity feeling")
+```
+
+
 ```{r}
 m <- multinom_reg() |> 
   fit(direction ~ closeness, data=d)
@@ -1338,57 +1646,39 @@ m <- multinom_reg() |>
 tidy(m, exponentiate=TRUE, conf.int=TRUE)
 ```
 
-## Synchrony
+### Synchrony
 
 ```{r}
-d <- all |> 
-  filter(type == "synchrony") |> 
-  select(-condition)
-d <- merge(d, meta, by="speaker", all=TRUE) |> 
-  mutate(real = ifelse(is.na(real), "no", real),
-         direction = ifelse(is.na(direction), "no", direction),
-         type = ifelse(is.na(type), "synchrony", type)) |> 
-  mutate_at(c("real", "direction", "type"), as.factor) 
+d <- merge(all |> filter(type == "synchrony") |> select(-condition),
+           meta,
+           by="speaker", all=TRUE) |> 
+  # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
+  #        direction = ifelse(is.na(direction), "no", direction),
+  #        type = ifelse(is.na(type), "synchrony", type)) |> 
+  mutate_at(c("entrain", "direction", "type"), as.factor) 
 ```
 
 
-Condition: the modle indicates more (dys)synchrony in impersonal condition, but if we look at the numbers and the graph that's not true.
+No effect of condition on dyssynchrony.
 ```{r}
-summary(m <- glmer(real ~ condition + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulateResiduals(m, plot = T)
-
-# but it's just not true
-ggplot(d, aes(condition))+
-  geom_bar()
+summary(glmer(entrain ~ condition + (1|speaker), d, family=binomial))
 ```
 
-Scores on questionnaire about perception of partner:
-* potentially more (dys)synchrony when participants rate higher on closeness, but the residuals indicate it's not a good model
-
-(model with similarity didn't converge)
+No effect of perception of partner.
 ```{r}
-summary(m <- glmer(real ~ closeness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ similarity + (1|speaker), d, family=binomial))
-summary(glmer(real ~ likeability + (1|speaker), d, family=binomial))
-summary(glmer(real ~ becomeFriends + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulationOutput <- simulateResiduals(m, plot = T)
+summary(glmer(entrain ~ closeness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ similarity + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ likeability + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ becomeFriends + (1|speaker), d, family=binomial))
 ```
 
-BFI scores:
-* potentially more (dys)synchrony when participants rate lower on extraversion, but the residuals indicate it's not a good model
+No effect of BFI scores.
 ```{r}
-summary(m <- glmer(real ~ extraversion + (1|speaker), d, family=binomial))
-summary(glmer(real ~ openness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ agreeableness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ conscientiousness + (1|speaker), d, family=binomial))
-summary(glmer(real ~ neuroticism + (1|speaker), d, family=binomial))
-
-# check residuals of the model that showed an effect
-simulationOutput <- simulateResiduals(m, plot = T)
+summary(glmer(entrain ~ extraversion + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ openness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ agreeableness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ conscientiousness + (1|speaker), d, family=binomial))
+summary(glmer(entrain ~ neuroticism + (1|speaker), d, family=binomial))
 ```
 
 (It doesn't make sense to analyze the direction of the effect here---snychrony vs. dyssynchrony---because there were almost no synchrony effects.)

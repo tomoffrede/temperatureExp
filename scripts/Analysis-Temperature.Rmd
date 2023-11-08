@@ -32,19 +32,23 @@ folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
 * Most people increased the temperature in most of their ROIs, with some exceptions.
 
 **Significant number of increases/decreases in temperature** (per speaker)
+
 * The **nose** changed temperature **more** often in the impersonal condition.
 * The **forehead** changed temperature **less** often with higher *openness* scores.
-* The **cheeks** changed/increased temperature **less** when the participant felt more *similar* to their partner.
+* The **cheeks** changed/increased temperature **less** often when the participant felt more *similar* to their partner.
 
 **Participants' temperature change across conditions** (all speakers together)
-* The **forehead** changed temperature **less** when the speaker liked their partner *more*.
-* The **cheeks** changed temperature **more** when the speaker scored higher on *agreeableness*.
 
-# Notes about models and data
+* **Nose** temperature change was **less positive** when the speaker scored higher on *extraversion*.
+* **Forehead** temperature change was **less positive** when the speaker liked their partner **more**.
+* **Forehead** temperature change was **less positive** when the speaker scored higher on *openness*.
+* **Cheeks** temperature change was **less positive** when the speaker liked their partner **more**.
+
+# Notes
 
 * There are 2 types of analysis:
-    + Run a regression on ROI's temperature ~ time passing *for each speaker*, and then use the result of these regressions (significant increase, significant decrease, not significant) as a dependent variable of other predictors (e.g., condition and questionnaire ratings)
-    + Run a regression with the speakers' absolute temperature change across the experiment (numerical) and use this as a dependent variable of other predictors.
++ Run a regression on ROI's temperature ~ time passing *for each speaker*, and then use the result of these regressions (significant increase, significant decrease, not significant) as a dependent variable of other predictors (e.g., condition and questionnaire ratings)
++ Run a regression with the speakers' absolute temperature change across the experiment (numerical) and use this as a dependent variable of other predictors.
 
 * In the models of temperature change across time, I originally wanted to add `room temperature` as a predictor to account for the increasing room temperature. However, there is high collinearity between `room temperature` and `time`, so the models don't make sense. Hence, only `time` is kept.
 
@@ -146,14 +150,17 @@ for(s in unique(dat$speaker)){
 }
 
 all <- all |> 
-  mutate_at(c("direction", "speaker", "condition", "section", "ROI"), as.factor) |> 
   mutate_at(c("t", "p"), as.numeric) |> 
   mutate(sign = ifelse(p < 0.05, "yes", "ns"),
          effect = case_when(
            sign == "yes" & direction == "positive" ~ "increase",
            sign == "yes" & direction == "negative" ~ "decrease",
            sign == "ns" ~ "ns",
-         ))
+         )) |> 
+  mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
+
+all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
+all$effect <- relevel(all$effect, ref="ns")
 
 # # save it
 # indTemp <- all
@@ -172,12 +179,22 @@ The individual plots divided per 1st vs 2nd part of experiment show that most pa
 summary(glmer(direction ~ section + (1|speaker), all |> filter(section!="entireExp"), family=binomial))
 ```
 
+```{r}
+ggplot(all, aes(ROI, fill=effect))+
+  geom_bar()+
+  facet_wrap(condition~section)+
+  ggtitle("Temperature change across ROIs & conditions")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+
 ### Questionnaire scores as predictors?
 
-Use dataset with effects relating to each task
+#### First part of experiment (Lists)
+
 ```{r}
 d <- merge(all |> 
-             filter(section != "entireExp") |> 
+             filter(section == "Lists") |>
              select(-condition) |> 
              mutate_at(c("sign", "effect"), as.factor),
            meta, by="speaker") |> 
@@ -188,16 +205,67 @@ d <- merge(all |>
 
 There were more significant nose temperature change effects in the impersonal condition.
 ```{r}
-ggplot(d |> filter(ROI=="Nose"), aes(effect))+
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
   geom_bar()+
-  facet_wrap(~condition)+
-  ggtitle("NOSE: temperature change across conditions")
+  # facet_wrap(~condition)+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
 
+########################################
+Trying poisson regression etc
+
+```{r}
+# is this offset(condCount) right? (generally: not sure what "offset" means here)
+dt <- d |> 
+  group_by(effect, condition, ROI) |> 
+  summarize(count = n())
+conditionCount <- d |> 
+  group_by(condition, ROI) |> 
+  summarize(condCount = n())
+dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
+
+dt$effect <- relevel(dt$effect, ref="ns")
+contrasts(dt$condition) <- c(-.5,+.5)
+
+summary(m <- glm(count ~ condition / effect, dt |> filter(ROI=="Nose"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
+  as_tibble()
+
+# two (more) options of plots:
+
+# ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
+#   as_tibble()  |>
+#   ggplot() +
+#   aes(x = group, y = predicted) +
+#   facet_grid(.~x) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin=conf.low, ymax = conf.high)) +
+#   geom_line(group = 1)
+# 
+# ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
+#   as_tibble()  |>
+#   ggplot() +
+#   aes(x = group, y = predicted) +
+#   facet_grid(.~x) +
+#   geom_col() +
+#   geom_errorbar(aes(ymin=conf.low, ymax = conf.high), width = .3)
+
+```
+########################################
+
+```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 summary(m <- glmer(condition ~ effect + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 
+
 # the residuals seem ok
-simulateResiduals(m, plot = T)
+# simulateResiduals(m, plot = T)
 ```
 
 No effect of their perception of their partner
@@ -424,6 +492,8 @@ anova(m0, m1)
 
 All the effects below are small and with the residuals not normally distributed. This is probably due to the small size of the data set. So these effects aren't the most reliable.
 
+### Entire Experiment
+
 #### Nose
 
 No condition effect.
@@ -439,9 +509,22 @@ summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(R
 summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-No effect with BFI scores.
+Nose temperature change was *less positive* when the person scored higher on extraversion.
 ```{r}
-summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
+ggplot(datChange |> filter(ROI=="Nose"), aes(tempChangeEntireExp, extraversion))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("NOSE change & extraversion")
+```
+
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
 summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Nose")))
 summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Nose")))
 summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Nose")))
@@ -479,7 +562,7 @@ No effect of condition.
 summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Forehead")))
 ```
 
-It seems that people that *liked* their partner more changed forehead temperature *less*.
+It seems that people that *liked* their partner more changed forehead temperature *less positively*.
 ```{r}
 ggplot(datChange |> filter(ROI=="Forehead"), aes(likeability, tempChangeEntireExp))+
   geom_point()+
@@ -499,10 +582,22 @@ summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(RO
 summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Forehead")))
 ```
 
-No effect of BFI scores.
+People changed their forehead temperature *less positively* when they scored *higher* in *openness*.
 ```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(openness, tempChangeEntireExp))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change & openness score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
 summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
 summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Forehead")))
 summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Forehead")))
 summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Forehead")))
@@ -516,37 +611,295 @@ No effect of condition.
 summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
-No effect of their perception of their partner.
+Cheeks changed temperature *less positively* when the speaker liked their partner *more*.
 ```{r}
-summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-```
-
-Participants who scored higher on *agreeableness* changed their cheek temperature more.
-```{r}
-ggplot(datChange |> filter(ROI=="Cheeks"), aes(agreeableness, tempChangeEntireExp))+
+ggplot(datChange |> filter(ROI=="Cheeks"), aes(likeability, tempChangeEntireExp))+
   geom_point()+
   geom_smooth(method="lm")+
-  ggtitle("CHEEKS change & agreeableness score")
+  ggtitle("CHEEKS change: how much partner is liked")
 ```
 
 ```{r}
-summary(m <- lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(m <- lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
 
+summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+No effects of BFI scores.
+```{r}
+summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
+### First part of experiment (Lists)
 
-# Temperature difference across time (convergence)
+#### Nose
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeLists ~ condition + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+No effect of perception of partner
+```{r}
+summary(lmer(tempChangeLists ~ closeness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ similarity + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ likeability + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+Nose's temperature change was *less positive* when the person scored higher on extraversion.
+```{r}
+ggplot(datChange |> filter(ROI=="Nose"), aes(tempChangeLists, extraversion))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("NOSE change & extraversion")
+```
+
+
+```{r}
+summary(m <- lmer(tempChangeLists ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeLists ~ openness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+#### Eyes
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeLists ~ condition + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeLists ~ closeness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ similarity + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ likeability + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of BFI scores.
+```{r}
+summary(lmer(tempChangeLists ~ extraversion + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ openness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+#### Forehead
+
+No effect of condition.
+```{r}
+summary(m <- lmer(tempChangeLists ~ condition + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeLists ~ likeability + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ closeness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ similarity + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+People changed their forehead temperature *more positively* when they scored *higher* in *agreeableness*.
+```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(agreeableness, tempChangeLists))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change & agreeableness score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeLists ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeLists ~ extraversion + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+
+#### Cheeks
+
+No effect of condition.
+```{r}
+summary(lmer(tempChangeLists ~ condition + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeLists ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+No effects of BFI scores.
+```{r}
+summary(lmer(tempChangeLists ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ extraversion + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+### Second part of experiment (Diapix)
+
+#### Nose
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeDiapix ~ condition + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeDiapix ~ closeness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ similarity + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ likeability + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+No effect of BFI scores.
+```{r}
+summary(lmer(tempChangeDiapix ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ openness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+#### Eyes
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeDiapix ~ condition + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeDiapix ~ closeness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ similarity + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ likeability + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of BFI scores.
+```{r}
+summary(lmer(tempChangeDiapix ~ extraversion + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ openness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+#### Forehead
+
+No effect of condition.
+```{r}
+summary(m <- lmer(tempChangeDiapix ~ condition + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+Forehead temperature change was *less positive* when the speaker scored higher on *likeability*.
+```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(likeability, tempChangeDiapix))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change & likeability score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeDiapix ~ likeability + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeDiapix ~ closeness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeDiapix ~ similarity + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeDiapix ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+Forehead temperature change was *less positive* when the speaker scored higher on *extraversion*.
+```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(extraversion, tempChangeDiapix))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change & extraversion score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeDiapix ~ extraversion + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeDiapix ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeDiapix ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+
+#### Cheeks
+
+No effect of condition.
+```{r}
+summary(m <- lmer(tempChangeDiapix ~ condition + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeDiapix ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+Cheek temperature change was *less positive* when the speaker scored higher on *agreeableness*.
+```{r}
+ggplot(datChange |> filter(ROI=="Cheeks"), aes(agreeableness, tempChangeDiapix))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("CHEEK change & agreeableness score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeDiapix ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeDiapix ~ extraversion + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+# Temperature convergence
 
 ## Per dyad
 
@@ -592,31 +945,36 @@ all <- all |>
            sign == "ns" ~ "ns"
          )) |> 
   mutate_at(c("direction", "dyad", "condition", "section", "ROI", "sign", "effect"), as.factor)
+
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
 all$ROI <- factor(all$ROI, levels=c("Forehead", "Eyes", "Nose", "Cheeks"))
 ```
 
 Some dyads converged (or diverged) on some ROIs.
+(Note: some people wore glasses during all or part of the experiment, hence fewer data points for the Eyes ROI.)
 ```{r}
 table(all$sign)
-ggplot(all, aes(ROI))+
+ggplot(all, aes(ROI, fill=effect))+
   geom_bar()+
-  facet_grid(effect~section)+
+  facet_wrap(~section)+
   ggtitle("Significance of effects of con-/divergence in ROIs")
 ```
 
-
 ```{r}
-ggplot(all |> filter(effect!="ns", section=="entireExp"), aes(ROI))+
+ggplot(all |> filter(section=="entireExp"), aes(ROI, fill=effect))+
   geom_bar()+
-  facet_wrap(condition~effect)+
-  ggtitle("Significant effects per condition, ROI & type")
+  facet_wrap(~condition)+
+  ggtitle("Significant effects per condition & ROI")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
 ```
 
-Neither the direction of the effect (con- vs. divergence) nor the presence of an effect (significant or not) is different between conditions.
+With all ROIs taken together, neither the direction of the effect (con- vs. divergence) nor the presence of an effect (significant or not) is different between conditions.
 ```{r}
-summary(glmer(effect ~ condition + (1|dyad), all |> filter(effect!="ns"), family=binomial))
 summary(glmer(sign ~ condition + (1|dyad), all, family=binomial))
+
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=all),
+     exponentiate=TRUE, conf.int=TRUE)
 ```
 
 Dyads that show an effect in one ROI are likely to show an effect in other ROIs.
@@ -626,6 +984,29 @@ hist(table(all$dyad[all$sign!="ns" & all$section=="entireExp"]), main="Number of
 ```
 
 (I'd like to explore whether dyads converge more/less using questionnaire scores as predictors, but I'm not sure how to do that, since the questionnaires were 1 per speaker, and the convergence measure is 1 per dyad.)
+
+### Per ROI
+
+```{r}
+all$effect <- relevel(all$effect, ref="ns")
+
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=all |> filter(ROI=="Nose")),
+     exponentiate=TRUE, conf.int=TRUE)
+
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=all |> filter(ROI=="Forehead")),
+     exponentiate=TRUE, conf.int=TRUE)
+
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=all |> filter(ROI=="Eyes")),
+     exponentiate=TRUE, conf.int=TRUE)
+
+tidy(m <- multinom_reg() |> 
+       fit(effect ~ condition, data=all |> filter(ROI=="Cheeks")),
+     exponentiate=TRUE, conf.int=TRUE)
+```
+
 
 ## All speakers together
 
