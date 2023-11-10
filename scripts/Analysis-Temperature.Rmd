@@ -33,6 +33,12 @@ folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
 
 **Significant number of increases/decreases in temperature** (per speaker)
 
+* There were overall more significant changes (mostly increases) in the impersonal condition. This was true for the following specific ROIs:
+    * First part of experiment
+        * Nose increases and decreases
+        ... continue
+        (see also: are the results of the inc/dec/ns per questionnaire answer the same as when we consider the numerical values?)
+        
 * The **nose** changed temperature **more** often in the impersonal condition.
 * The **forehead** changed temperature **less** often with higher *openness* scores.
 * The **cheeks** changed/increased temperature **less** often when the participant felt more *similar* to their partner.
@@ -201,22 +207,9 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-#### Nose
-
-There were more significant nose temperature change effects in the impersonal condition.
 ```{r}
-ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
-  geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("NOSE: Temperature change across conditions (Lists)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
+# data set for poisson regression
 
-########################################
-Trying poisson regression etc
-
-```{r}
-# is this offset(condCount) right? (generally: not sure what "offset" means here)
 dt <- d |> 
   group_by(effect, condition, ROI) |> 
   summarize(count = n())
@@ -227,15 +220,71 @@ dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
 
 dt$effect <- relevel(dt$effect, ref="ns")
 contrasts(dt$condition) <- c(-.5,+.5)
+```
 
-summary(m <- glm(count ~ condition / effect, dt |> filter(ROI=="Nose"), family="poisson"))
+##### All ROIs together
 
-tidy(m) |> 
+* With all ROIs taken together, there were overall more changes in the impersonal condition, both increases and decreases.
+
+```{r}
+ggplot(d, aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+ggplot(d, aes(condition, fill=sign))+
+  geom_bar()+
+  ggtitle("All ROIs: number of significant changes (Lists)")+
+  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
+```
+
+```{r}
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
+```
+
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
+
+# the residuals seem ok
+# simulateResiduals(m, plot = T)
+```
+
+
+##### Nose
+
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+Nose temperature tended to *increase more often* (strongly) and also *decrease more often* (less robustly) in the *impersonal* condition.
+
+(Interpretation of the negative binomial model below, which is the same as for nested effects in a poisson model
+* Line 2 of the tibble: decrease is less likely to occur in condition close than "ns" (not significant)
+* Line 3: increase is more likely to occur in condition close than "ns" (not significant)
+* Line 4: "ns" in condition impersonal is more likely than "ns" in condition close, but not significant.
+* Line 5: decrease in condition impersonal is more likely than decrease in condition close (significantly)
+* Line 6: increase in condition impersonal is more likely than increase in condition close (significantly))
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
+
+tidy(nb) |> 
   as_tibble() |> 
-  mutate(estimate = plogis(estimate))
+  mutate(estimate = exp(estimate))
 
-ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
-  as_tibble()
+# ggeffects::ggpredict(nb, terms=c("effect", "condition")) |>
+#   as_tibble()
 
 # two (more) options of plots:
 
@@ -257,12 +306,10 @@ ggeffects::ggpredict(m, terms=c("effect", "condition")) |>
 #   geom_errorbar(aes(ymin=conf.low, ymax = conf.high), width = .3)
 
 ```
-########################################
 
+Apparently no effect of condition on the number of significant changes.
 ```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(m <- glmer(condition ~ effect + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-
 
 # the residuals seem ok
 # simulateResiduals(m, plot = T)
@@ -291,9 +338,29 @@ summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=
 summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 ```
 
-#### Eyes
+##### Eyes
 
-No effect of condition
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Eyes increased temperature *more often* in the *impersonal* condition.
+* There were more *ns* effects in the *impersonal* condition.
+```{r}
+# the negative binomial model wasn't even running (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition on number of significant changes.
 ```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
 
@@ -324,7 +391,29 @@ summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=
 summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
 ```
 
-#### Forehead
+##### Forehead
+
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Forehead temperature changed *more often* (in general) in the *close* condition.
+* Forehead temperature increased *more often* in the *impersonal* condition.
+
+(Does this make sense?)
+```{r}
+# the negative binomial model wasn't even running (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
 
 No effect of condition
 ```{r}
@@ -364,7 +453,28 @@ summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), fam
 summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
 ```
 
-#### Cheeks
+##### Cheeks
+
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Cheek temperature *changed more often* in the *impersonal* condition.
+    * Cheek temperature *decreased more often* in the *impersonal* condition.
+    * Cheek temperature also *increased more often* in the *impersonal* condition.
+```{r}
+# again, the negative binomial model isn't fitting correctly, so we fit directly a poisson model
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
 
 No effect of condition
 ```{r}
@@ -401,6 +511,578 @@ summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), famil
 summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
 
+#### Second part of experiment (Diapix)
+
+```{r}
+d <- merge(all |> 
+             filter(section == "Diapix") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+```{r}
+# data set for poisson regression
+
+dt <- d |> 
+  group_by(effect, condition, ROI) |> 
+  summarize(count = n())
+conditionCount <- d |> 
+  group_by(condition, ROI) |> 
+  summarize(condCount = n())
+dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
+
+dt$effect <- relevel(dt$effect, ref="ns")
+contrasts(dt$condition) <- c(-.5,+.5)
+```
+
+##### All ROIs together
+
+* In the second part of the experiment, it was even clearer that overall all ROIs changed more in the impersonal condition.
+
+```{r}
+ggplot(d, aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+ggplot(d, aes(condition, fill=sign))+
+  geom_bar()+
+  ggtitle("All ROIs: number of significant changes (Lists)")+
+  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
+```
+
+```{r}
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
+```
+
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
+
+# the residuals seem ok
+# simulateResiduals(m, plot = T)
+```
+
+
+##### Nose
+
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Nose temperature *increased* more often than having no effect in the *close* condition.
+* Nose temperature *increased* **and** *decreased* more often in the *impersonal* condition.
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+Apparently no effect of condition on the number of significant changes.
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+
+# the residuals seem ok
+# simulateResiduals(m, plot = T)
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+Nose temperature tended to *change more often* when the speaker scored higher on *openness*.
+
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(sign, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+##### Eyes
+
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Eyes increased temperature *more often* in the *impersonal* condition.
+* Eyes decreased temperature *less often* overall.
+* There were less *ns* effects in the *impersonal* condition.
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the negative binomial model is preferred due to overdispersion in the count data
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition on number of significant changes.
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+##### Forehead
+
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Forehead temperature decreased *less often* overall.
+* Forehead temperature increased *more often* in the *impersonal* condition.
+```{r}
+# the negative binomial model didn't even run (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition on amount of significant changes (but almost)
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+Forehead temperature *changed less often* when the speaker liked their partner *more* -- but the residuals are not ok!
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(sign, likeability))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+# residuals of the openness model: don't seem ok!
+simulateResiduals(m, plot = T)
+```
+
+Forehead temperature changed *more often* when the speaker scored higher on *openness*.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(sign, openness))+
+  geom_boxplot()+
+  ggtitle("FOREHEAD: Openness scores--less temp change")
+```
+
+```{r}
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+
+# residuals of the openness model: seem ok
+simulateResiduals(m, plot = T)
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+##### Cheeks
+
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Cheek temperature *decreased more often* in the *impersonal* condition.
+* Cheek temperature also *increased more often* in the *impersonal* condition.
+
+(The model also seems to suggest that there were more "ns" effects in the impersonal condition, but that doesn't make sense...)
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of their perception of their partner.
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+#### Entire experiment
+
+```{r}
+d <- merge(all |> 
+             filter(section == "entireExp") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+```{r}
+# data set for poisson regression
+
+dt <- d |> 
+  group_by(effect, condition, ROI) |> 
+  summarize(count = n())
+conditionCount <- d |> 
+  group_by(condition, ROI) |> 
+  summarize(condCount = n())
+dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
+
+dt$effect <- relevel(dt$effect, ref="ns")
+contrasts(dt$condition) <- c(-.5,+.5)
+```
+
+##### All ROIs together
+
+* With all ROIs taken together, there were overall more changes in the impersonal condition, both increases and decreases.
+
+```{r}
+ggplot(d, aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+ggplot(d, aes(condition, fill=sign))+
+  geom_bar()+
+  ggtitle("All ROIs: number of significant changes (Lists)")+
+  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
+```
+
+```{r}
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
+```
+
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
+
+# the residuals seem ok
+# simulateResiduals(m, plot = T)
+```
+
+
+##### Nose
+
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Nose temperature *increased* more often than having no effect in the *close* condition.
+* Nose temperature *increased* **and** *decreased* more often in the *impersonal* condition.
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+Model not converging.
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+
+# the residuals seem ok
+# simulateResiduals(m, plot = T)
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of BFI scores.
+```{r}
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial)) # not converging
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+##### Eyes
+
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Eyes increased temperature *more often* in the *impersonal* condition.
+* There were more *ns* effects in the *impersonal* condition.
+```{r}
+# the negative binomial model doesn't run, so we do the poisson model directly
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes"), family="poisson"))
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+
+ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
+  as_tibble()
+```
+
+Model not converging
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of their perception of their partner
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+Eye temperature changed *less often* when the speaker scored *higher* on *neuroticism*.
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(sign, neuroticism))+
+  geom_boxplot()
+```
+
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+##### Forehead
+
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Forehead temperature increased *more often* in the *impersonal* condition.
+```{r}
+# the negative binomial model didn't even run (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
+
+summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
+
+tidy(m) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition on amount of significant changes (but almost)
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+No effect of BFI scores.
+```{r}
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+##### Cheeks
+
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  # facet_wrap(~condition)+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+* Cheek temperature *decreased more often* in the *impersonal* condition.
+* Cheek temperature also *increased more often* in the *impersonal* condition.
+
+(The model also seems to suggest that there were more "ns" effects in the impersonal condition, but that doesn't make sense...)
+```{r}
+# first fit a negative binomial regression, in case the count data is overdispersed
+summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks")))
+
+# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
+pscl::odTest(nb)
+# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
+
+tidy(nb) |> 
+  as_tibble() |> 
+  mutate(estimate = exp(estimate))
+```
+
+No effect of condition
+```{r}
+summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of their perception of their partner.
+```{r}
+summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of BFI scores
+```{r}
+summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of thermal comfort
+```{r}
+summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+```
 
 ## All speakers together
 
