@@ -18,6 +18,8 @@ library(lmerTest)
 library(broom)
 library(DHARMa)
 library(parsnip)
+library(nnet)
+library(emmeans)
 
 load(paste0(here::here(), "/data/tempData.RData"))
 load(paste0(here::here(), "/data/tempDataChange.RData"))
@@ -27,34 +29,89 @@ folderFig1 <- paste0(here::here(), "/figures/temperature/tempChange/")
 folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
 ```
 
-# Summary: Most interesting results
+# Summary of Results
 
 * Most people increased the temperature in most of their ROIs, with some exceptions.
 
 **Significant number of increases/decreases in temperature** (per speaker)
 
-* There were overall more significant changes (mostly increases) in the impersonal condition. This was true for the following specific ROIs:
-    * First part of experiment
-        * Nose increases and decreases
-        ... continue
-        (see also: are the results of the inc/dec/ns per questionnaire answer the same as when we consider the numerical values?)
+* There were overall **more significant changes** (mostly increases) in the **impersonal** condition. In more detail:
+    * First part of experiment (**Question lists**)
+        * none
+    * Second part of experiment (**Diapix**)
+        * All ROIs together: more increases in *impersonal*; more changes overall in *impersonal*
+        * Forehead: more increases in *impersonal* (adjusted p a bit above .05)
+        * Cheeks: more increases in *impersonal* (adjusted p slightly above .05)
+    * Across the entire experiment
+        * Cheeks: more increases in *impersonal* (adjusted p above .05)
         
-* The **nose** changed temperature **more** often in the impersonal condition.
-* The **forehead** changed temperature **less** often with higher *openness* scores.
-* The **cheeks** changed/increased temperature **less** often when the participant felt more *similar* to their partner.
+        
+(see also: are the results of the inc/dec/ns per questionnaire answer the same as when we consider the numerical values?)
 
-**Participants' temperature change across conditions** (all speakers together)
+* Sometimes, there were a few temperature decreases in the close condition, but no decreases in the impersonal condition. This was true for the following:
+    * First part of experiment (**Question lists**)
+        * Eyes
+        * Forehead
+    * Second part of experiment (**Diapix**)
+       * Eyes
+       * Forehead
 
-* **Nose** temperature change was **less positive** when the speaker scored higher on *extraversion*.
-* **Forehead** temperature change was **less positive** when the speaker liked their partner **more**.
-* **Forehead** temperature change was **less positive** when the speaker scored higher on *openness*.
-* **Cheeks** temperature change was **less positive** when the speaker liked their partner **more**.
+* Some effects of perception of partner:
+    * First part of experiment (**Lists**)
+        * Nose temperature *increased more often* when the speaker wanted *more* to be friends.
+    * Second part of experiment (**Diapix**)
+        * Nose temperature *decreased less often* when the speaker wanted *more* to be *friends*.
+        * Eye temperature *increased less often* when the speaker felt *closer* to their partner.
+        * Forehead temperature *increased less often* when the speaker *liked* their partner *more*.
+        
+* Some effects of personality scores:
+    * First part of experiment (**Lists**)
+        * Cheek temperature *increased less often* when the speaker scored higher in *agreeableness*.
+    * Second part of experiment (**Diapix**)
+        * Nose temperature *increased less often* when the speaker scored higher in *extraversion*.
+        * Nose temperature *increased and decreased less often* when the speaker scored higher in *openness*.
+        * Eye temperature *increased less often* when the speaker scored higher in *agreeableness*.
+        * Forehead temperature *increased less often* when the speaker scored higher in *extraversion*.
+        * Forehead temperature *increased less often* when the speaker scored higher in *openness* (small effect).
+        * Cheek temperature *increased less often* when the speaker scored higher in *agreeableness*.
+    * Across the entire experiment
+        * Eye temperature *increased less often* when the speaker scored higher in *neuroticism*.
+        * Cheek temperature *increased less often* when the speaker scored higher in *agreeableness*.
+        
+* Some effects of thermal comfort:
+    * Second part of the experiment (**Diapix**)
+        * Nose temperature had *increased and decreased less often* when the speaker felt more comfortable at the end of the experiment.
+        
+
+**Participants' temperature change across experiment** (all speakers together)
+
+* All ROIs *except cheeks* increased temperature reliably (accounting for room temperature).
+* There was no overall condition effect.
+
+* Some effects of perception of partner:
+    * Second part of experiment (**Diapix**)
+        * Forehead temperature change was *less positive* when the speaker *liked* their partner *more*. (and almost significant effects in the same direction here for feelings of *closeness* and *similarity*)
+    * Across the entire experiment
+        * Forehead temperature change was *less positive* when the speaker *liked* their partner *more*. (and almost significant effects in the same direction here for feelings of *similarity* and *wanting to be friends*)
+        * Cheek temperature change was *less positive* when the speaker *liked* their partner *more*.
+
+* Some effects of personality scores:
+    * First part of experiment (**Question lists**)
+        * Nose temperature change was *less positive* when the speaker scored higher in *extraversion*.
+        * Forehead temperature change was *more positive* when the speaker scored higher in *agreeableness*.
+    * Second part of experiment (**Diapix**)
+        * Forehead temperature change was *less positive* when the speaker scored higher in *extraversion*.
+        * Cheek temperature change was *less positive* when the speaker scored higher in *agreeableness*.
+    * Across the entire experiment
+        * Nose temperature change was *less positive* when the speaker scored higher in *extraversion*.
+        * Forehead temperature change was *less positive* when the speaker scored higher in *openness*.
+
 
 # Notes
 
 * There are 2 types of analysis:
-+ Run a regression on ROI's temperature ~ time passing *for each speaker*, and then use the result of these regressions (significant increase, significant decrease, not significant) as a dependent variable of other predictors (e.g., condition and questionnaire ratings)
-+ Run a regression with the speakers' absolute temperature change across the experiment (numerical) and use this as a dependent variable of other predictors.
+    * Run a regression on ROI's temperature ~ time passing *for each speaker*, and then use the result of these regressions (significant increase, significant decrease, not significant) as a dependent variable of other predictors (e.g., condition and questionnaire ratings)
+    * Run a regression with the speakers' absolute temperature change across the experiment (numerical) and use this as a dependent variable of other predictors.
 
 * In the models of temperature change across time, I originally wanted to add `room temperature` as a predictor to account for the increasing room temperature. However, there is high collinearity between `room temperature` and `time`, so the models don't make sense. Hence, only `time` is kept.
 
@@ -212,20 +269,22 @@ d <- merge(all |>
 
 dt <- d |> 
   group_by(effect, condition, ROI) |> 
-  summarize(count = n())
+  summarize(count = n()) |> 
+  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
+  mutate(count = replace_na(count, 0))
 conditionCount <- d |> 
   group_by(condition, ROI) |> 
   summarize(condCount = n())
 dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
 
 dt$effect <- relevel(dt$effect, ref="ns")
-contrasts(dt$condition) <- c(-.5,+.5)
+# contrasts(dt$condition) <- c(-.5,+.5)
+dt$condition <- relevel(dt$condition, ref="close")
 ```
 
 ##### All ROIs together
 
-* With all ROIs taken together, there were overall more changes in the impersonal condition, both increases and decreases.
-
+No condition effect
 ```{r}
 ggplot(d, aes(condition, fill=effect))+
   geom_bar()+
@@ -235,56 +294,31 @@ ggplot(d, aes(condition, fill=effect))+
 ```
 
 ```{r}
-ggplot(d, aes(condition, fill=sign))+
-  geom_bar()+
-  ggtitle("All ROIs: number of significant changes (Lists)")+
-  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
-```
+tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-```{r}
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
-```
-
-```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
-
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
 ```
-
 
 ##### Nose
 
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
   ggtitle("NOSE: Temperature change across conditions (Lists)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-Nose temperature tended to *increase more often* (strongly) and also *decrease more often* (less robustly) in the *impersonal* condition.
-
-(Interpretation of the negative binomial model below, which is the same as for nested effects in a poisson model
-* Line 2 of the tibble: decrease is less likely to occur in condition close than "ns" (not significant)
-* Line 3: increase is more likely to occur in condition close than "ns" (not significant)
-* Line 4: "ns" in condition impersonal is more likely than "ns" in condition close, but not significant.
-* Line 5: decrease in condition impersonal is more likely than decrease in condition close (significantly)
-* Line 6: increase in condition impersonal is more likely than increase in condition close (significantly))
+No effect of condition
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-# ggeffects::ggpredict(nb, terms=c("effect", "condition")) |>
-#   as_tibble()
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 
 # two (more) options of plots:
 
@@ -307,35 +341,62 @@ tidy(nb) |>
 
 ```
 
-Apparently no effect of condition on the number of significant changes.
+People *increased* their temperature *more often* when they wanted more to *become friends* with their partner. When performing pairwise comparison and adjusting the p value, it became a little over .05 (i.e. .055)
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
 ```
 
-No effect of their perception of their partner
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of BFI scores
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Eyes
@@ -343,114 +404,144 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
   ggtitle("EYES: Temperature change across conditions (Lists)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Eyes increased temperature *more often* in the *impersonal* condition.
-* There were more *ns* effects in the *impersonal* condition.
+No effect of condition
 ```{r}
-# the negative binomial model wasn't even running (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes"), family="poisson"))
-
-tidy(m) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
 ```
 
-No effect of condition on number of significant changes.
+No effect of the perception of their partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-# the residuals seem ok
-simulateResiduals(m, plot = T)
-```
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-No effect of their perception of their partner
-```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of BFI scores
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
+
 
 ##### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
   ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Forehead temperature changed *more often* (in general) in the *close* condition.
-* Forehead temperature increased *more often* in the *impersonal* condition.
-
-(Does this make sense?)
-```{r}
-# the negative binomial model wasn't even running (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
-
-tidy(m) |> 
-  as_tibble() |> 
-  mutate(estimate = exp(estimate))
-```
-
 No effect of condition
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-# the residuals seem ok
-simulateResiduals(m, plot = T)
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
 ```
 
-No effect of their perception of their partner
+No effect of the perception of their partner.
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-Openness seemed to predict *less* significant temperature change in the forehead.
+No effect of BFI scores
 ```{r}
-ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
-  geom_boxplot()+
-  ggtitle("FOREHEAD: Openness scores--less temp change")
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-# residuals of the openness model: seem ok
-simulateResiduals(m, plot = T)
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Cheeks
@@ -458,57 +549,76 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), fa
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
   ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Cheek temperature *changed more often* in the *impersonal* condition.
-    * Cheek temperature *decreased more often* in the *impersonal* condition.
-    * Cheek temperature also *increased more often* in the *impersonal* condition.
-```{r}
-# again, the negative binomial model isn't fitting correctly, so we fit directly a poisson model
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks"), family="poisson"))
-
-tidy(m) |> 
-  as_tibble() |> 
-  mutate(estimate = exp(estimate))
-```
-
 No effect of condition
 ```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
 
-Participants that felt more similar to their partner tended *less* to increase cheek temperature
+No effect of the perception of their partner.
 ```{r}
-ggplot(d |> filter(ROI=="Cheeks"), aes(effect, similarity))+
-  geom_boxplot()+
-  ggtitle("CHEEKS: Similarity--less temp change/increase")
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-# residuals of the openness model: seem ok
-simulateResiduals(m, plot = T)
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of BFI scores
+Cheek temperature *increased less often* when the speaker scored higher in *agreeableness*. BUT pairwise comparison not running.
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 #### Second part of experiment (Diapix)
@@ -527,108 +637,136 @@ d <- merge(all |>
 
 dt <- d |> 
   group_by(effect, condition, ROI) |> 
-  summarize(count = n())
+  summarize(count = n()) |> 
+  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
+  mutate(count = replace_na(count, 0))
 conditionCount <- d |> 
   group_by(condition, ROI) |> 
   summarize(condCount = n())
 dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
 
 dt$effect <- relevel(dt$effect, ref="ns")
-contrasts(dt$condition) <- c(-.5,+.5)
+# contrasts(dt$condition) <- c(-.5,+.5)
+dt$condition <- relevel(dt$condition, ref="close")
 ```
 
 ##### All ROIs together
 
-* In the second part of the experiment, it was even clearer that overall all ROIs changed more in the impersonal condition.
+Overall, there were more temperature *increases* in the *impersonal* condition.
+
+There were also *fewer* non-effects in the *impersonal* condition.
 
 ```{r}
 ggplot(d, aes(condition, fill=effect))+
   geom_bar()+
   # facet_wrap(~condition)+
-  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  ggtitle("All ROIs: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
 ```{r}
-ggplot(d, aes(condition, fill=sign))+
-  geom_bar()+
-  ggtitle("All ROIs: number of significant changes (Lists)")+
-  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
-```
+tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-```{r}
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
-```
-
-```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
-
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
 ```
-
 
 ##### Nose
 
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Nose temperature *increased* more often than having no effect in the *close* condition.
-* Nose temperature *increased* **and** *decreased* more often in the *impersonal* condition.
+No effect of condition
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 ```
 
-Apparently no effect of condition on the number of significant changes.
+People *decrease* their temperature *more often* when they wanted more to *become friends* with their partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
-```
-
-No effect of their perception of their partner
-```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-```
-
-Nose temperature tended to *change more often* when the speaker scored higher on *openness*.
-
-```{r}
-ggplot(d |> filter(ROI=="Nose"), aes(sign, openness))+
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
   geom_boxplot()
 ```
 
 ```{r}
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+Nose temperature *increased less often* when the person scored higher on *extraversion.* 
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+Nose temperature tended to *change less often* (both directions) when the person scored higher on *openness*. But only the p value of the temperature *increases* stayed significant after adjustment.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+ggplot(d |> filter(ROI=="Nose"), aes(effect, comfortPost))+
+  geom_boxplot()
+```
+
+Nose temperature had *increased and decreased less often* when the speaker felt more comfortable at the end of the experiment. 
+```{r}
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Eyes
@@ -636,122 +774,172 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  ggtitle("EYES: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Eyes increased temperature *more often* in the *impersonal* condition.
-* Eyes decreased temperature *less often* overall.
-* There were less *ns* effects in the *impersonal* condition.
+No effect of condition
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the negative binomial model is preferred due to overdispersion in the count data
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
 ```
 
-No effect of condition on number of significant changes.
+Eye temperature *increased less often* when the speaker felt *closer* to their partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, likeability))+
+  geom_boxplot()
 ```
 
-No effect of their perception of their partner
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of BFI scores
+Eye temperature *increased less often* when the speaker scored higher on agreeableness.
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
+
 
 ##### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Forehead temperature decreased *less often* overall.
-* Forehead temperature increased *more often* in the *impersonal* condition.
+More increases in *impersonal*, but adjusted p value = 0.07
 ```{r}
-# the negative binomial model didn't even run (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
-
-tidy(m) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
 ```
 
-No effect of condition on amount of significant changes (but almost)
+Forehead temperature *increased less often* when the speaker *liked* their partner *more*.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-```
-
-Forehead temperature *changed less often* when the speaker liked their partner *more* -- but the residuals are not ok!
-```{r}
-ggplot(d |> filter(ROI=="Forehead"), aes(sign, likeability))+
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
   geom_boxplot()
 ```
 
 ```{r}
-summary(m <- glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-# residuals of the openness model: don't seem ok!
-simulateResiduals(m, plot = T)
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-Forehead temperature changed *more often* when the speaker scored higher on *openness*.
+Forehead temperature *increased less often* when the speaker scored higher in *extraversion.*
 ```{r}
-ggplot(d |> filter(ROI=="Forehead"), aes(sign, openness))+
-  geom_boxplot()+
-  ggtitle("FOREHEAD: Openness scores--less temp change")
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, extraversion))+
+  geom_boxplot()
 ```
 
 ```{r}
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
 
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+Forehead temperature also *increased less often* when the speaker scored higher in *openness*.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
+  geom_boxplot()
+```
 
-# residuals of the openness model: seem ok
-simulateResiduals(m, plot = T)
+```{r}
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Cheeks
@@ -759,55 +947,78 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), fa
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Cheek temperature *decreased more often* in the *impersonal* condition.
-* Cheek temperature also *increased more often* in the *impersonal* condition.
-
-(The model also seems to suggest that there were more "ns" effects in the impersonal condition, but that doesn't make sense...)
+Cheek temperature tended to *increase more often* in the *impersonal* condition, but the adjusted p value was slightly above 0.05 (i.e., 0.053).
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
-```
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-No effect of condition
-```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
 
-No effect of their perception of their partner.
+No effect of the perception of their partner.
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of BFI scores
+Cheek temperature *increased* less often when the speaker scored higher in agreeableness.
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
+
 
 #### Entire experiment
 
@@ -825,7 +1036,9 @@ d <- merge(all |>
 
 dt <- d |> 
   group_by(effect, condition, ROI) |> 
-  summarize(count = n())
+  summarize(count = n()) |> 
+  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
+  mutate(count = replace_na(count, 0))
 conditionCount <- d |> 
   group_by(condition, ROI) |> 
   summarize(condCount = n())
@@ -843,26 +1056,18 @@ contrasts(dt$condition) <- c(-.5,+.5)
 ggplot(d, aes(condition, fill=effect))+
   geom_bar()+
   # facet_wrap(~condition)+
-  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  ggtitle("All ROIs: Temperature change across conditions (entire exp)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
+No significant effect of condition, but almost
 ```{r}
-ggplot(d, aes(condition, fill=sign))+
-  geom_bar()+
-  ggtitle("All ROIs: number of significant changes (Lists)")+
-  scale_fill_manual(values = c("ns" = "gray", "yes" = "black"))
-```
+tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-```{r}
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt, family="poisson"))
-```
-
-```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
-
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
 ```
 
 
@@ -871,55 +1076,71 @@ summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Nose temperature *increased* more often than having no effect in the *close* condition.
-* Nose temperature *increased* **and** *decreased* more often in the *impersonal* condition.
+No effect of condition
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Nose")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glm(sign ~ condition, d |> filter(ROI=="Nose"), family=binomial)) # not converging with the random intercepts
 ```
 
-Model not converging.
+No effect of perception of partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-# the residuals seem ok
-# simulateResiduals(m, plot = T)
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of their perception of their partner
+No effect of BFI scores
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-```
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-No effect of BFI scores.
-```{r}
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial)) # not converging
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Eyes
@@ -927,106 +1148,151 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Nose"), family
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  ggtitle("EYES: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Eyes increased temperature *more often* in the *impersonal* condition.
-* There were more *ns* effects in the *impersonal* condition.
+No effect of condition
 ```{r}
-# the negative binomial model doesn't run, so we do the poisson model directly
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Eyes"), family="poisson"))
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-ggeffects::ggpredict(m, terms=c("effect", "condition")) |> 
-  as_tibble()
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
 ```
 
-Model not converging
+No effect of perception of partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+# there's a warning about the `decrease` level being empty, but I already checked with a dataset where I `droplevel()`'d `effect` and it didn't affect the model
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of their perception of their partner
+Eye temperature seemed to *increase less often* when the speaker scored higher on neuroticism.
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-```
-
-Eye temperature changed *less often* when the speaker scored *higher* on *neuroticism*.
-```{r}
-ggplot(d |> filter(ROI=="Eyes"), aes(sign, neuroticism))+
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, neuroticism))+
   geom_boxplot()
 ```
 
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
+
 
 ##### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Forehead temperature increased *more often* in the *impersonal* condition.
+No effect of condition
 ```{r}
-# the negative binomial model didn't even run (not a matter of convergence, the function is just not working despite it being exactly the same as the model used for `Nose`. so run the poisson regression directly)
-
-summary(m <- glm(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Forehead"), family="poisson"))
-
-tidy(m) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+
+summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
 ```
 
-No effect of condition on amount of significant changes (but almost)
+No effect of the perception of their partner.
 ```{r}
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of perception of partner.
+No effect of perception of their partner
 ```{r}
-summary(m <- glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-```
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 
-No effect of BFI scores.
-```{r}
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ##### Cheeks
@@ -1034,54 +1300,76 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Forehead"), fa
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-* Cheek temperature *decreased more often* in the *impersonal* condition.
-* Cheek temperature also *increased more often* in the *impersonal* condition.
-
-(The model also seems to suggest that there were more "ns" effects in the impersonal condition, but that doesn't make sense...)
+Cheek temperature tended to *increase more often* in the *impersonal* condition, but the adjusted p value was above 0.05.
 ```{r}
-# first fit a negative binomial regression, in case the count data is overdispersed
-summary(nb <- MASS::glm.nb(count ~ effect / condition + offset(condCount), dt |> filter(ROI=="Cheeks")))
-
-# and then check if, indeed the negative binomial model is preferred to the corresponding poisson model
-pscl::odTest(nb)
-# the low p value indicates that indeed the count data is overdispersed and the negative binomial model, which is more conservative, is more fitted here
-
-tidy(nb) |> 
+tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimate = exp(estimate))
-```
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
 
-No effect of condition
-```{r}
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
 
-No effect of their perception of their partner.
+No effect of the perception of their partner.
 ```{r}
-summary(glmer(sign ~ closeness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ similarity + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ likeability + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ becomeFriends + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-No effect of BFI scores
+Cheek temperature tended to *increase less often* when the speaker scored higher in agreeableness, but the pairwise comparison isn't computing. And the effect also seems rather small.
 ```{r}
-summary(glmer(sign ~ extraversion + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(m <- glmer(sign ~ openness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ agreeableness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ conscientiousness + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ neuroticism + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 No effect of thermal comfort
 ```{r}
-summary(glmer(sign ~ comfortPre + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
-summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
+tidy(m <- nnet::multinom(effect ~ comfortPre, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
 ## All speakers together
@@ -1092,7 +1380,7 @@ summary(glmer(sign ~ comfortPost + (1|speaker), d |> filter(ROI=="Cheeks"), fami
 
 Nose got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + (1+time|speaker)`
+Preferred model: `temperature ~ time : roomTemp + (time||speaker)`
 
 ```{r}
 ggplot(dat |> filter(ROI=="Nose"), aes(time, temperature))+
@@ -1104,16 +1392,19 @@ ggplot(dat |> filter(ROI=="Nose"), aes(time, temperature))+
 ```{r}
 summary(m0 <- lmer(temperature ~ time + (time||speaker) , dat |> filter(ROI=="Nose")))
 
-summary(m1 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker), dat |> filter(ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker) , dat |> filter(ROI=="Nose")))
+
+summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker) , dat |> filter(ROI=="Nose")))
 
 anova(m0, m1)
+anova(m1, m2)
 ```
 
 #### Forehead
 
 Forehead got warmer across time, no difference between conditions.
 
-Preferred model: `(temperature ~ time + (1+time|speaker)`
+Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
 
 ```{r}
 ggplot(dat |> filter(ROI=="Forehead"), aes(time, temperature))+
@@ -1124,16 +1415,18 @@ ggplot(dat |> filter(ROI=="Forehead"), aes(time, temperature))+
 
 ```{r}
 summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(ROI=="Forehead"))) # but failed to converge
 
 anova(m0, m1)
+anova(m1, m2)
 ```
 
 #### Eyes
 
 Eyes got warmer across time, no difference between conditions.
 
-Preferred model: `(temperature ~ time + (1+time|speaker)`
+Preferred model: `temperature ~ time + (time||speaker)`
 
 
 ```{r}
@@ -1144,17 +1437,19 @@ ggplot(dat |> filter(ROI=="Eyes"), aes(time, temperature))+
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker), dat |> filter(ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ time : condition + (time||speaker), dat |> filter(ROI=="Eyes")))
 
-anova(m0, m1)
+anova(m0, m1) # this time the model without `roomTemp` was preferred
+anova(m0, m2)
 ```
 
 #### Cheeks
 
 Cheeks did not change temperature.
 
-Preferred model: `(temperature ~ time + (1+time|speaker)`
+Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
 
 ```{r}
 ggplot(dat |> filter(ROI=="Cheeks"), aes(time, temperature))+
@@ -1165,166 +1460,20 @@ ggplot(dat |> filter(ROI=="Cheeks"), aes(time, temperature))+
 
 ```{r}
 summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time : condition + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
 
 anova(m0, m1)
+anova(m1, m2)
 ```
 
-### Temperature difference -- exploration of possible predictors
+### Temperature change -- exploration of possible predictors
 
 All the effects below are small and with the residuals not normally distributed. This is probably due to the small size of the data set. So these effects aren't the most reliable.
 
-### Entire Experiment
+#### First part of experiment (Lists)
 
-#### Nose
-
-No condition effect.
-```{r}
-summary(lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Nose")))
-```
-
-No effect of perception of partner
-```{r}
-summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Nose")))
-```
-
-Nose temperature change was *less positive* when the person scored higher on extraversion.
-```{r}
-ggplot(datChange |> filter(ROI=="Nose"), aes(tempChangeEntireExp, extraversion))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("NOSE change & extraversion")
-```
-
-
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-
-summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Nose")))
-summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
-```
-
-#### Eyes
-
-No condition effect.
-```{r}
-summary(lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Eyes")))
-```
-
-No effect of perception of partner.
-```{r}
-summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Eyes")))
-```
-
-No effect of BFI scores.
-```{r}
-summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Eyes")))
-summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
-```
-
-#### Forehead
-
-No effect of condition.
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Forehead")))
-```
-
-It seems that people that *liked* their partner more changed forehead temperature *less positively*.
-```{r}
-ggplot(datChange |> filter(ROI=="Forehead"), aes(likeability, tempChangeEntireExp))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("FOREHEAD change: how much partner is liked")
-```
-
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Forehead")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-
-summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Forehead")))
-```
-
-People changed their forehead temperature *less positively* when they scored *higher* in *openness*.
-```{r}
-ggplot(datChange |> filter(ROI=="Forehead"), aes(openness, tempChangeEntireExp))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("FOREHEAD change & openness score")
-```
-
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-
-summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Forehead")))
-summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Forehead")))
-```
-
-
-#### Cheeks
-
-No effect of condition.
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-```
-
-Cheeks changed temperature *less positively* when the speaker liked their partner *more*.
-```{r}
-ggplot(datChange |> filter(ROI=="Cheeks"), aes(likeability, tempChangeEntireExp))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("CHEEKS change: how much partner is liked")
-```
-
-```{r}
-summary(m <- lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-
-summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-```
-
-No effects of BFI scores.
-```{r}
-summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
-```
-
-### First part of experiment (Lists)
-
-#### Nose
+##### Nose
 
 No condition effect.
 ```{r}
@@ -1361,7 +1510,7 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-#### Eyes
+##### Eyes
 
 No condition effect.
 ```{r}
@@ -1385,7 +1534,7 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
 ```
 
-#### Forehead
+##### Forehead
 
 No effect of condition.
 ```{r}
@@ -1402,7 +1551,7 @@ summary(lmer(tempChangeLists ~ becomeFriends + (1|dyad), datChange |> filter(ROI
 
 People changed their forehead temperature *more positively* when they scored *higher* in *agreeableness*.
 ```{r}
-ggplot(datChange |> filter(ROI=="Forehead"), aes(agreeableness, tempChangeLists))+
+ggplot(datChange |> filter(ROI=="Forehead"), aes(tempChangeLists, agreeableness))+
   geom_point()+
   geom_smooth(method="lm")+
   ggtitle("FOREHEAD change & agreeableness score")
@@ -1422,7 +1571,7 @@ summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI==
 ```
 
 
-#### Cheeks
+##### Cheeks
 
 No effect of condition.
 ```{r}
@@ -1446,9 +1595,9 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
-### Second part of experiment (Diapix)
+#### Second part of experiment (Diapix)
 
-#### Nose
+##### Nose
 
 No condition effect.
 ```{r}
@@ -1472,7 +1621,7 @@ summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filte
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-#### Eyes
+##### Eyes
 
 No condition effect.
 ```{r}
@@ -1496,7 +1645,7 @@ summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filte
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
 ```
 
-#### Forehead
+##### Forehead
 
 No effect of condition.
 ```{r}
@@ -1505,7 +1654,7 @@ summary(m <- lmer(tempChangeDiapix ~ condition + (1|dyad), datChange |> filter(R
 
 Forehead temperature change was *less positive* when the speaker scored higher on *likeability*.
 ```{r}
-ggplot(datChange |> filter(ROI=="Forehead"), aes(likeability, tempChangeDiapix))+
+ggplot(datChange |> filter(ROI=="Forehead"), aes(tempChangeDiapix, likeability))+
   geom_point()+
   geom_smooth(method="lm")+
   ggtitle("FOREHEAD change & likeability score")
@@ -1525,7 +1674,7 @@ summary(lmer(tempChangeDiapix ~ becomeFriends + (1|dyad), datChange |> filter(RO
 
 Forehead temperature change was *less positive* when the speaker scored higher on *extraversion*.
 ```{r}
-ggplot(datChange |> filter(ROI=="Forehead"), aes(extraversion, tempChangeDiapix))+
+ggplot(datChange |> filter(ROI=="Forehead"), aes(tempChangeDiapix, extraversion))+
   geom_point()+
   geom_smooth(method="lm")+
   ggtitle("FOREHEAD change & extraversion score")
@@ -1545,7 +1694,7 @@ summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=
 ```
 
 
-#### Cheeks
+##### Cheeks
 
 No effect of condition.
 ```{r}
@@ -1579,6 +1728,154 @@ summary(lmer(tempChangeDiapix ~ extraversion + (1|dyad), datChange |> filter(ROI
 summary(lmer(tempChangeDiapix ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+#### Entire Experiment
+
+##### Nose
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+No effect of perception of partner
+```{r}
+summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+Nose temperature change was *less positive* when the person scored higher on extraversion.
+```{r}
+ggplot(datChange |> filter(ROI=="Nose"), aes(tempChangeEntireExp, extraversion))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("NOSE change & extraversion")
+```
+
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Nose")))
+summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
+```
+
+##### Eyes
+
+No condition effect.
+```{r}
+summary(lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of perception of partner.
+```{r}
+summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+No effect of BFI scores.
+```{r}
+summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Eyes")))
+summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
+```
+
+##### Forehead
+
+No effect of condition.
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+It seems that people that *liked* their partner more changed forehead temperature *less positively*.
+```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(tempChangeEntireExp, likeability))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change: how much partner is liked")
+```
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+People changed their forehead temperature *less positively* when they scored *higher* in *openness*.
+```{r}
+ggplot(datChange |> filter(ROI=="Forehead"), aes(tempChangeEntireExp, openness))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("FOREHEAD change & openness score")
+```
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Forehead")))
+summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Forehead")))
+```
+
+
+##### Cheeks
+
+No effect of condition.
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ condition + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+Cheeks changed temperature *less positively* when the speaker liked their partner *more*.
+```{r}
+ggplot(datChange |> filter(ROI=="Cheeks"), aes(tempChangeEntireExp, likeability))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("CHEEKS change: how much partner is liked")
+```
+
+```{r}
+summary(m <- lmer(tempChangeEntireExp ~ likeability + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(lmer(tempChangeEntireExp ~ closeness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ similarity + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ becomeFriends + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+```
+
+No effects of BFI scores.
+```{r}
+summary(lmer(tempChangeEntireExp ~ agreeableness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ extraversion + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ openness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> filter(ROI=="Cheeks")))
+summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
 # Temperature convergence
@@ -1629,7 +1926,24 @@ all <- all |>
   mutate_at(c("direction", "dyad", "condition", "section", "ROI", "sign", "effect"), as.factor)
 
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
+all$effect <- factor(all$effect, levels=c("ns", "divergence", "convergence"))
 all$ROI <- factor(all$ROI, levels=c("Forehead", "Eyes", "Nose", "Cheeks"))
+
+# data set for poisson regression
+
+dt <- all |> 
+  group_by(effect, condition, ROI) |> 
+  summarize(count = n()) |> 
+  right_join(crossing(effect = unique(all$effect), condition = unique(all$condition), ROI = unique(all$ROI))) |> 
+  mutate(count = replace_na(count, 0))
+conditionCount <- all |> 
+  group_by(condition, ROI) |> 
+  summarize(condCount = n())
+dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
+
+dt$effect <- relevel(dt$effect, ref="ns")
+# contrasts(dt$condition) <- c(-.5,+.5)
+dt$condition <- relevel(dt$condition, ref="close")
 ```
 
 Some dyads converged (or diverged) on some ROIs.
@@ -1639,25 +1953,10 @@ table(all$sign)
 ggplot(all, aes(ROI, fill=effect))+
   geom_bar()+
   facet_wrap(~section)+
-  ggtitle("Significance of effects of con-/divergence in ROIs")
-```
-
-```{r}
-ggplot(all |> filter(section=="entireExp"), aes(ROI, fill=effect))+
-  geom_bar()+
-  facet_wrap(~condition)+
-  ggtitle("Significant effects per condition & ROI")+
+  ggtitle("Significance of effects of con-/divergence in ROIs")+
   scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
 ```
 
-With all ROIs taken together, neither the direction of the effect (con- vs. divergence) nor the presence of an effect (significant or not) is different between conditions.
-```{r}
-summary(glmer(sign ~ condition + (1|dyad), all, family=binomial))
-
-tidy(m <- multinom_reg() |> 
-       fit(effect ~ condition, data=all),
-     exponentiate=TRUE, conf.int=TRUE)
-```
 
 Dyads that show an effect in one ROI are likely to show an effect in other ROIs.
 ```{r}
@@ -1667,28 +1966,282 @@ hist(table(all$dyad[all$sign!="ns" & all$section=="entireExp"]), main="Number of
 
 (I'd like to explore whether dyads converge more/less using questionnaire scores as predictors, but I'm not sure how to do that, since the questionnaires were 1 per speaker, and the convergence measure is 1 per dyad.)
 
-### Per ROI
+### First part of experiment (Lists)
 
+#### All ROIs
+
+No difference between conditions
 ```{r}
-all$effect <- relevel(all$effect, ref="ns")
-
-tidy(m <- multinom_reg() |> 
-       fit(effect ~ condition, data=all |> filter(ROI=="Nose")),
-     exponentiate=TRUE, conf.int=TRUE)
-
-tidy(m <- multinom_reg() |> 
-       fit(effect ~ condition, data=all |> filter(ROI=="Forehead")),
-     exponentiate=TRUE, conf.int=TRUE)
-
-tidy(m <- multinom_reg() |> 
-       fit(effect ~ condition, data=all |> filter(ROI=="Eyes")),
-     exponentiate=TRUE, conf.int=TRUE)
-
-tidy(m <- multinom_reg() |> 
-       fit(effect ~ condition, data=all |> filter(ROI=="Cheeks")),
-     exponentiate=TRUE, conf.int=TRUE)
+ggplot(all |> filter(section=="Lists"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Significant effects per condition (entire exp)")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
 ```
 
+```{r}
+summary(glmer(sign ~ condition + (1|dyad), all |> filter(section=="Lists"), family=binomial))
+
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Nose
+
+No difference in nose convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Nose", section=="Lists"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Lists", ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Forehead
+
+No difference in forehead convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Forehead", section=="Lists"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Forehead: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Lists", ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Eyes
+
+There are no convergence or divergence effects in the impersonal condition, but also much fewer data points overall, so this isn't necessarily informative.
+
+```{r}
+ggplot(all |> filter(ROI=="Eyes", section=="Lists"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Lists", ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Cheeks
+
+No difference in cheek convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Cheeks", section=="Lists"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Lists", ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+### Second part of experiment (Diapix)
+
+#### All ROIs
+
+```{r}
+ggplot(all |> filter(section=="Diapix"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Significant effects per condition (entire exp)")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glmer(sign ~ condition + (1|dyad), all |> filter(section=="Diapix"), family=binomial))
+
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Nose
+
+No difference in nose convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Nose", section=="Diapix"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Diapix", ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Forehead
+
+No difference in forehead convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Forehead", section=="Diapix"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Forehead: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Diapix", ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Eyes
+
+No difference in eye convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Eyes", section=="Diapix"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Diapix", ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Cheeks
+
+No difference in cheek convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Cheeks", section=="Diapix"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="Diapix", ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+### Across entire experiment
+
+#### All ROIs
+
+```{r}
+ggplot(all |> filter(section=="entireExp"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Significant effects per condition (entire exp)")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glmer(sign ~ condition + (1|dyad), all |> filter(section=="entireExp"), family=binomial))
+
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Nose
+
+No difference in nose convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Nose", section=="entireExp"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="entireExp", ROI=="Nose"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Forehead
+
+No difference in forehead convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Forehead", section=="entireExp"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("Forehead: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="entireExp", ROI=="Forehead"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Eyes
+
+No difference in eye convergence between conditions.
+
+```{r}
+ggplot(all |> filter(ROI=="Eyes", section=="entireExp"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="entireExp", ROI=="Eyes"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
+
+#### Cheeks
+
+More cheek divergence (or rather: cheek divergence *only*) in the *close* condition.
+
+```{r}
+ggplot(all |> filter(ROI=="Cheeks", section=="entireExp"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature convergence")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(effect ~ condition, data= all |> filter(section=="entireExp", ROI=="Cheeks"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="effect")
+```
 
 ## All speakers together
 
