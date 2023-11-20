@@ -1481,9 +1481,184 @@ sort(table(all$speaker[all$entrain=="yes"]))
 hist(table(all$speaker[all$entrain=="yes"]))
 ```
 
-# Exploring relationships between effects above and questionnaire scores
+# Exploring relationships between effects above and other variables
 
-## Using regression coefficient
+## Temperature change
+
+### Convergence
+
+There doesn't seem to be a relationship between significant temperature change and a participant's tendency to converge or diverge from their partner.
+(Looking at the data set itself, there also doesn't seem to be any patterns.)
+
+```{r}
+t1 <- indTemp |> 
+  filter(section=="entireExp") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "entireExp")
+
+t2 <- indTemp |> 
+  filter(section=="Lists") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "Lists")
+
+t3 <- indTemp |> 
+  filter(section=="Diapix") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "Diapix")
+
+t <- rbind(t1, rbind(t2, t3))
+
+dat <- merge(t,
+             all |> 
+               filter(type == "convergence") |> 
+               select(speaker, direction, entrain, condition, feature, section),
+             by=c("speaker", "section"), all=TRUE) |> 
+  mutate(conv = case_when(
+    entrain == "no" ~ "ns",
+    entrain == "yes" ~ direction
+  )) |> 
+  mutate_all(as.factor)
+
+dat$Forehead <- relevel(dat$Forehead, ref="ns")
+dat$Cheeks <- relevel(dat$Cheeks, ref="ns")
+dat$Eyes <- relevel(dat$Eyes, ref="ns")
+dat$Nose <- relevel(dat$Nose, ref="ns")
+dat$conv <- relevel(dat$conv, ref="ns")
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Forehead, fill=conv))+
+  geom_bar()+
+  ggtitle("Forehead")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Forehead ~ conv, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Cheeks, fill=conv))+
+  geom_bar()+
+  ggtitle("Cheeks")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Cheeks ~ conv, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Eyes, fill=conv))+
+  geom_bar()+
+  ggtitle("Eyes")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Eyes ~ conv, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Nose, fill=conv))+
+  geom_bar()+
+  ggtitle("Nose")+
+  scale_fill_manual(values = c("divergence" = "lightblue", "convergence" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Nose ~ conv, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+### Synchrony
+
+Also for synchrony, there doesn't seem to be a relationship between temperature change and tendency to (dys)synchronize.
+
+```{r}
+dat <- merge(t,
+             all |> 
+               filter(type == "synchrony") |> 
+               select(speaker, direction, entrain, condition, feature, section),
+             by=c("speaker", "section"), all=TRUE) |> 
+  mutate(syn = case_when(
+    entrain == "no" ~ "ns",
+    entrain == "yes" ~ direction
+  )) |> 
+  mutate_all(as.factor)
+
+dat$Forehead <- relevel(dat$Forehead, ref="ns")
+dat$Cheeks <- relevel(dat$Cheeks, ref="ns")
+dat$Eyes <- relevel(dat$Eyes, ref="ns")
+dat$Nose <- relevel(dat$Nose, ref="ns")
+dat$syn <- relevel(dat$syn, ref="ns")
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Forehead, fill=syn))+
+  geom_bar()+
+  ggtitle("Forehead")+
+  scale_fill_manual(values = c("dyssynchrony" = "lightblue", "synchrony" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Forehead ~ syn, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Cheeks, fill=syn))+
+  geom_bar()+
+  ggtitle("Cheeks")+
+  scale_fill_manual(values = c("dyssynchrony" = "lightblue", "synchrony" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Cheeks ~ syn, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Eyes, fill=syn))+
+  geom_bar()+
+  ggtitle("Eyes")+
+  scale_fill_manual(values = c("dyssynchrony" = "lightblue", "synchrony" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Eyes ~ syn, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+```{r}
+ggplot(dat |> drop_na(), aes(Nose, fill=syn))+
+  geom_bar()+
+  ggtitle("Nose")+
+  scale_fill_manual(values = c("dyssynchrony" = "lightblue", "synchrony" = "red", "ns" = "gray"))
+```
+
+```{r}
+tidy(m <- nnet::multinom(Nose ~ syn, data=dat)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+```
+
+## Questionnaire scores
+
+### Using regression coefficient
 
 ```{r}
 d <- merge(all |> filter(type == "convergence") |> select(-condition),
@@ -1533,9 +1708,9 @@ summary(lmer(coefficient ~ conscientiousness + (1|speaker), d))
 summary(lmer(coefficient ~ neuroticism + (1|speaker), d))
 ```
 
-## Using yes/no labels
+### Using yes/no labels
 
-### Convergence
+#### Convergence
 
 ```{r}
 d <- merge(all |> filter(type == "convergence") |> select(-condition),
@@ -1581,7 +1756,7 @@ summary(glmer(entrain ~ conscientiousness + (1|speaker), d, family=binomial))
 summary(glmer(entrain ~ neuroticism + (1|speaker), d, family=binomial))
 ```
 
-#### Direction of the effect (convergence vs divergence)
+##### Direction of the effect (convergence vs divergence)
 
 Condition: no effect
 ```{r}
@@ -1646,7 +1821,7 @@ m <- multinom_reg() |>
 tidy(m, exponentiate=TRUE, conf.int=TRUE)
 ```
 
-### Synchrony
+#### Synchrony
 
 ```{r}
 d <- merge(all |> filter(type == "synchrony") |> select(-condition),
