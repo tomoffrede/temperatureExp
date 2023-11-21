@@ -4,6 +4,7 @@ author: "Tom Offrede"
 output:
   html_document:
     toc: true
+    toc_depth: 4
     toc_float: 
       collapsed: false
 ---
@@ -18,6 +19,7 @@ library(lmerTest)
 library(DHARMa)
 library(broom)
 library(parsnip)
+library(emmeans)
 
 load(paste0(here::here(), "/data/speechData.RData"))
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -29,22 +31,669 @@ badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG
 
 # Summary of results
 
+**f0 change regardless of interlocutor** (per speaker; using categorical values)
+
+* Some participants significantly increased or decreased on different f0 measures to different extents, but there were almost no relationships with other predictors. This is the exception:
+    * First part of the experiment (Lists)
+        * f0 max *decreased less often* when the speaker felt *closer* to their partner.
+        * f0 SD tended to *increase more often* when the person scored higher in *neuroticism*.
+
+**f0 change regardless of interlocutor** (all speakers together; using continuous values)
+
+* First section of the experiment (Lists)
+    * f0 median didn't change significantly
+    * f0 max decreased only in the *impersonal* condition
+    * f0 SD decreased in both conditions
+* Second section of the experiment (Diapix)
+    * f0 median increased only in the *close* condition (but model without `condition` preferred)
+    * f0 max didn't change significantly
+    * f0 SD
+* Across entire experiment
+    * f0 median increased only in the *close* condition
+    * f0 max decreased in both conditions
+    * f0 SD increased only in the *close* condition
+    
+**f0 entrainment**
+
 * Some participants entrained and some didn't; sometimes only in the first part of the experiment, sometimes in the second, sometimes across it all.
 * The most common effect was of dyssynchrony, meaning the participants often produce different f0 from the previous turn's last IPU. Makes sense: question-answer.
-* I didn't find any effects of condition.
+* I didn't find any effects of condition or relationship with temperature change or questionnaire responses.
 
 # Notes
 
-* The check of residuals of logistic models below, was done following: https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html
-
+* The check of residuals of logistic models below, was done following: <https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html>
 
 # Individual change -- regardless of interlocutor
 
-## f0 median
+## Individual analysis
 
-* Analysis across entire experiment: f0 median goes up only in *close* condition.
-* Analysis only during question lists: f0 median doesn't change in any group.
-* Analysis only during Diapix: f0 median goes up only in the *impersonal* condition.
+```{r}
+ind <- data.frame(matrix(nrow=0, ncol=6))
+names(ind) <- c("speaker", "condition", "feature", "section", "t", "p")
+```
+
+```{r}
+for(s in unique(ipus$speaker)){
+  # f0 median
+  c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s)))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "entireExp",
+                         c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Lists",
+                         c$statistic[2], c$p.value[2])
+  if(!all(is.na(ipus$f0med[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Diapix",
+                           c$statistic[2], c$p.value[2])
+  }
+  
+  # f0 max
+  c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s)))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "entireExp",
+                         c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Lists",
+                         c$statistic[2], c$p.value[2])
+  if(!all(is.na(ipus$f0max[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Diapix",
+                           c$statistic[2], c$p.value[2])
+  }
+  
+  # f0 SD
+  c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s)))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "entireExp",
+                         c$statistic[2], c$p.value[2])
+  c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Lists",
+                         c$statistic[2], c$p.value[2])
+  if(!all(is.na(ipus$f0sd[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Diapix",
+                           c$statistic[2], c$p.value[2])
+  }
+}
+
+dat <- merge(ind |> 
+               mutate_at(c("t", "p"), as.numeric) |> 
+               mutate(change = case_when(
+                 p < 0.05 & t < 0 ~ "decrease",
+                 p < 0.05 & t > 0 ~ "increase",
+                 p > 0.05 ~ "ns"
+               )),
+             ipus |> select(speaker, gender, comfortPre, comfortPost, closeness, similarity, likeability, becomeFriends, extraversion, openness, agreeableness, conscientiousness, neuroticism) |> filter(!duplicated(speaker)),
+             by = "speaker") |> 
+  mutate_at(c("speaker", "condition", "feature", "section", "change", "gender"), as.factor)
+
+dat$change <- relevel(dat$change, ref="ns")
+```
+
+### Explore possible predictors
+
+#### First part of the experiment (Lists)
+
+##### f0 median
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0median", section=="Lists"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 median (first part of exp - Lists)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 max
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 max (first part of exp - Lists)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+f0 max decreased *less* when the speaker felt *closer* to their partner.
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, closeness))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 SD
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0SD", section=="Lists"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 SD (first part of exp - Lists)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+f0 SD tended to increase *more* often when the person scored *higher* in *neuroticism*.
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, neuroticism))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+#### Second part of the experiment (Diapix)
+
+##### f0 median
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0median", section=="Diapix"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 median (second part of exp - Diapix)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 max
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="Diapix"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 max (second part of exp - Diapix)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 SD
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0SD", section=="Diapix"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 SD (second part of exp - Diapix)")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+
+#### Across entire experiment
+
+##### f0 median
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0median", section=="entireExp"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 median across entire experiment")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 max
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="entireExp"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 max across entire experiment")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+##### f0 SD
+
+No effect of condition
+
+```{r}
+ggplot(dat |> filter(feature=="f0SD", section=="entireExp"), aes(condition, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
+  ggtitle("f0 SD across entire experiment")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+emmeans(m, pairwise~condition, by="change")
+```
+
+No effect of perception of partner
+```{r}
+tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+No effect of BFI scores
+```{r}
+tidy(m <- nnet::multinom(change ~ extraversion, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ openness, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ agreeableness, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+
+tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+```
+
+## All speakers pulled together
+
+### f0 median
+
+-   Across entire experiment: f0 median increases only in *close* condition
+-   Only during question lists: f0 median doesn't change in any group.
+-   Only during Diapix: f0 median tends to go up only in the *close* condition, BUT the model with `condition` was *not* preferred (even though the difference in the graph is huge)
 
 (This was the same regardless of whether males were included.)
 
@@ -55,33 +704,54 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turn, f0med))+
+ggplot(ipus, aes(turnOverall, f0med))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0med ~ turn : condition + (1|speaker), ipus))
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
 
-ggplot(ipus |> filter(task=="Lists"), aes(turn, f0med))+
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0med))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0med ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 
-ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0med))+
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0med))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0med ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 ```
 
-Checking if f0 median changes across time in interaction with questionnaire scores:
-* Even though all the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+Checking if f0 median changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+
 ```{r}
-summary(m <- lmer(f0med ~ turn + (1|speaker), ipus))
-summary(m1 <- lmer(f0med ~ turn : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0med ~ turn : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0med ~ turn : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0med ~ turn : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0med ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0med ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0med ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0med ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -89,12 +759,11 @@ anova(m, m3)
 anova(m, m4)
 ```
 
+### f0 max
 
-## f0 max
-
-* Analysis across entire experiment: f0 max goes down in both conditions (though this isn't clear in the graph...)
-* Analysis only during question lists: f0 max goes down only in the *impersonal* condition.
-* Analysis only during Diapix: f0 max goes down only in the *impersonal* condition (though again, the graph seems to suggest the opposite...).
+-   Across entire experiment: f0 max decreases in both conditions
+-   Only during question lists: f0 max decreases only in the *impersonal* condition
+-   Only during Diapix: f0 max doesn't change significantly for either group
 
 (This was the same regardless of whether males were included.)
 
@@ -105,33 +774,54 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turn, f0max))+
+ggplot(ipus, aes(turnOverall, f0max))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0max ~ turn : condition + (1|speaker), ipus))
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 
-ggplot(ipus |> filter(task=="Lists"), aes(turn, f0max))+
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0max))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0max ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
 
-ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0max))+
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0max))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0max ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 ```
 
-Checking if f0 SD changes across time in interaction with questionnaire scores:
-* Even though all the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+
 ```{r}
-summary(m <- lmer(f0max ~ turn + (1|speaker), ipus))
-summary(m1 <- lmer(f0max ~ turn : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0max ~ turn : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0max ~ turn : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0max ~ turn : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0max ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0max ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0max ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0max ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -139,11 +829,11 @@ anova(m, m3)
 anova(m, m4)
 ```
 
-## f0 SD
+### f0 SD
 
-* Analysis across entire experiment: f0 SD goes down in the *impersonal* condition (though this isn't clear in the graph...)
-* Analysis only during question lists: f0 SD goes down only in the *close* condition.
-* Analysis only during Diapix: f0 SD goes down in both conditions.
+-   Across entire experiment: f0 SD increases only in the *close* condition
+-   Only during question lists: f0 SD goes down in both conditions
+-   Only during Diapix: f0 SD doesn't change for either condition
 
 This is weird... if SD went down in the close condition when taking each section separately, why does it not changing when taking the entire experiment?
 
@@ -156,33 +846,54 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turn, f0sd))+
+ggplot(ipus, aes(turnOverall, f0sd))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus))
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
 
-ggplot(ipus |> filter(task=="Lists"), aes(turn, f0sd))+
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sd))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus |> filter(task=="Lists")))
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 
-ggplot(ipus |> filter(task=="Diapix"), aes(turn, f0sd))+
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sd))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition)
-summary(lmer(f0sd ~ turn : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
 ```
 
-Checking if f0 SD changes across time in interaction with questionnaire scores:
-* Speakers that felt more *similar* to their partner tended to decrease their f0 SD *more* across the experiment.
+Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+
 ```{r}
-summary(m <- lmer(f0sd ~ turn + (1|speaker), ipus))
-summary(m1 <- lmer(f0sd ~ turn : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0sd ~ turn : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0sd ~ turn : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0sd ~ turn : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sd ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0sd ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0sd ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0sd ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -190,15 +901,16 @@ anova(m, m3)
 anova(m, m4)
 ```
 
-
 # Local convergence
+
 (following Levitan & Hirschberg 2011's method)
 
 ```{r}
+load(paste0(here::here(), "/data/speechData.RData"))
+
 all <- data.frame(matrix(nrow=0, ncol=9))
 names(all) <- c("speaker", "type", "direction", "coefficient", "mock", "real", "condition", "feature", "section")
 ```
-
 
 ## f0 median
 
@@ -269,8 +981,8 @@ One converged and two diverged on f0 median. All from the impersonal condition.
 print(count)
 ```
 
-
 ### Only in the first part of the experiment
+
 Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
 
 ```{r}
@@ -332,15 +1044,14 @@ all <- rbind(all, count)
 
 Below we see the only 2 speakers whose correlation was significant between time and real f0 median differences AND who had no more than 1 significant correlation between time and randomly ordered f0 median.
 
-One converged (in the close condition) and one diverged (impersonal condition) on f0 median.
-These 2 are different from the 3 displayed above.
+One converged (in the close condition) and one diverged (impersonal condition) on f0 median. These 2 are different from the 3 displayed above.
 
 ```{r}
 print(count)
 ```
 
-
 ### Only in the second part of the experiment
+
 Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
 
 ```{r}
@@ -410,7 +1121,6 @@ She was in the close condition and converged to her partner.
 print(count)
 ```
 
-
 ## f0 max
 
 ### Across the entire experiment
@@ -478,8 +1188,8 @@ No one seemed to converge or diverge on f0 max.
 print(count)
 ```
 
-
 ### Only in the first part of the experiment
+
 Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
 
 ```{r}
@@ -547,8 +1257,8 @@ One converged (in the close condition) and one diverged (impersonal condition) o
 print(count)
 ```
 
-
 ### Only in the second part of the experiment
+
 Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
 
 ```{r}
@@ -685,8 +1395,8 @@ No one seemed to converge or diverge on f0 sd.
 print(count)
 ```
 
-
 ### Only in the first part of the experiment
+
 Since we could argue that the speakers converge to each other only in the beginning, and that in the second part of the experiment the difference between f0s doesn't keep decreasing (or increasing)
 
 ```{r}
@@ -754,8 +1464,8 @@ One converged (in the impersonal condition) and one diverged (close condition) o
 print(count)
 ```
 
-
 ### Only in the second part of the experiment
+
 Since we could argue that the speakers converge to each other more in the second part of the experiment, after they already got to know each other (and like each other or not) in the first part.
 
 ```{r}
@@ -1457,25 +2167,28 @@ all <- all |>
 print(all |> filter(entrain=="yes"))
 ```
 
-Most effects were when we take the entire experiment. But a considerable number of effects in each section too.
-(Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
+Most effects were when we take the entire experiment. But a considerable number of effects in each section too. (Note: the higher number of effects across the whole experiment should *not* be because of the increased number of datapoints, since we do a robustness check with 10 pseudo-datapoints to control for number of points.)
+
 ```{r}
 table(all$section[all$entrain=="yes"])
 table(paste(all$section[all$entrain=="yes"], all$type[all$entrain=="yes"]))
 ```
 
 There is a similar number of divergence and convergence effects. But there was almost no synchrony and a lot of dyssynchrony.
+
 ```{r}
 table(all$direction[all$entrain=="yes"])
 ```
 
 There was roughly the same number of effects on each feature.
+
 ```{r}
 table(all$feature[all$entrain=="yes"])
 table(paste(all$feature[all$entrain=="yes"], all$direction[all$direction!="dyssynchrony" & all$entrain=="yes"]))
 ```
 
 When a given speaker shows an effect, they more likely also show other effects.
+
 ```{r}
 sort(table(all$speaker[all$entrain=="yes"]))
 hist(table(all$speaker[all$entrain=="yes"]))
@@ -1487,8 +2200,7 @@ hist(table(all$speaker[all$entrain=="yes"]))
 
 ### Convergence
 
-There doesn't seem to be a relationship between significant temperature change and a participant's tendency to converge or diverge from their partner.
-(Looking at the data set itself, there also doesn't seem to be any patterns.)
+There doesn't seem to be a relationship between significant temperature change and a participant's tendency to converge or diverge from their partner. (Looking at the data set itself, there also doesn't seem to be any patterns.)
 
 ```{r}
 t1 <- indTemp |> 
@@ -1667,16 +2379,22 @@ d <- merge(all |> filter(type == "convergence") |> select(-condition),
   # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
   #        direction = ifelse(is.na(direction), "no", direction),
   #        type = ifelse(is.na(type), "convergence", type)) |> 
-  mutate_at(c("entrain", "direction", "type"), as.factor) |> 
+  mutate(effect = case_when(
+    entrain == "no" ~ "ns",
+    entrain == "yes" ~ direction
+  )) |> 
+  mutate_at(c("entrain", "direction", "type", "effect"), as.factor) |> 
   mutate_at(c("coefficient"), as.numeric)
 ```
 
 No effect of condition.
+
 ```{r}
 summary(lmer(coefficient ~ condition + (1|speaker), d))
 ```
 
 No effect of speakers' perception of their partner. (It was the same null result if I used `d |> filter(entrain=="yes")`, and also if we look at each section separately.)
+
 ```{r}
 summary(lmer(coefficient ~ closeness + (1|speaker), d))
 summary(lmer(coefficient ~ similarity + (1|speaker), d))
@@ -1700,6 +2418,7 @@ summary(lmer(coefficient ~ becomeFriends + (1|speaker), d))
 ```
 
 No effect of speakers' perception of BFI scores.
+
 ```{r}
 summary(lmer(coefficient ~ extraversion + (1|speaker), d))
 summary(lmer(coefficient ~ openness + (1|speaker), d))
@@ -1719,17 +2438,22 @@ d <- merge(all |> filter(type == "convergence") |> select(-condition),
   # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
   #        direction = ifelse(is.na(direction), "no", direction),
   #        type = ifelse(is.na(type), "convergence", type)) |> 
-  mutate_at(c("entrain", "direction", "type"), as.factor)
+  mutate(effect = case_when(
+    entrain == "no" ~ "ns",
+    entrain == "yes" ~ direction
+  )) |> 
+  mutate_at(c("entrain", "direction", "type", "effect"), as.factor)
 # d$direction <- relevel(d$direction, ref="no")
 ```
 
 Condition: no effect
+
 ```{r}
 summary(glmer(entrain ~ condition + (1|speaker), d, family=binomial))
 ```
 
-Scores on questionnaire about perception of partner: no effect.
-Also no effect when we take each section separately.
+Scores on questionnaire about perception of partner: no effect. Also no effect when we take each section separately.
+
 ```{r}
 summary(glmer(entrain ~ closeness + (1|speaker), d, family=binomial))
 summary(glmer(entrain ~ similarity + (1|speaker), d, family=binomial))
@@ -1748,6 +2472,7 @@ summary(glmer(entrain ~ becomeFriends + (1|speaker), d, family=binomial))
 ```
 
 BFI scores: no effect, BUT openness, agreeableness, neuroticism not converging.
+
 ```{r}
 summary(glmer(entrain ~ extraversion + (1|speaker), d, family=binomial))
 summary(glmer(entrain ~ openness + (1|speaker), d, family=binomial))
@@ -1759,66 +2484,55 @@ summary(glmer(entrain ~ neuroticism + (1|speaker), d, family=binomial))
 ##### Direction of the effect (convergence vs divergence)
 
 Condition: no effect
+
 ```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ condition, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 ```
 
-Questionnaire scores:
-* Speakers seem to do more divergence than convergence when they feel *closer* to their partner.
-* The regression suggests people converged more when they felt more similar, but the plot shows no difference.
+No effect of perception of partner
 
 ```{r}
-ggplot(d, aes(direction, closeness))+
-  geom_boxplot()+
-  ggtitle("Direction of convergence and closeness feeling")
+tidy(m <- nnet::multinom(direction ~ closeness, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-ggplot(d, aes(direction, similarity))+
-  geom_boxplot()+
-  ggtitle("Direction of convergence and similarity feeling")
-```
+tidy(m <- nnet::multinom(effect ~ similarity, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
+tidy(m <- nnet::multinom(effect ~ likeability, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ closeness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ similarity, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ likeability, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
-
-m <- multinom_reg() |> 
-  fit(direction ~ becomeFriends, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 ```
 
 BFI scores: no effects
+
 ```{r}
-m <- multinom_reg() |> 
-  fit(direction ~ extraversion, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ extraversion, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-m <- multinom_reg() |> 
-  fit(direction ~ openness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ openness, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-m <- multinom_reg() |> 
-  fit(direction ~ agreeableness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ agreeableness, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-m <- multinom_reg() |> 
-  fit(direction ~ conscientiousness, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 
-m <- multinom_reg() |> 
-  fit(direction ~ neuroticism, data=d)
-tidy(m, exponentiate=TRUE, conf.int=TRUE)
+tidy(m <- nnet::multinom(effect ~ neuroticism, data=d)) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
 ```
 
 #### Synchrony
@@ -1830,16 +2544,21 @@ d <- merge(all |> filter(type == "synchrony") |> select(-condition),
   # mutate(entrain = ifelse(is.na(entrain), "no", entrain),
   #        direction = ifelse(is.na(direction), "no", direction),
   #        type = ifelse(is.na(type), "synchrony", type)) |> 
-  mutate_at(c("entrain", "direction", "type"), as.factor) 
+  mutate(effect = case_when(
+    entrain == "no" ~ "ns",
+    entrain == "yes" ~ direction
+  )) |> 
+  mutate_at(c("entrain", "direction", "type", "effect"), as.factor) 
 ```
 
-
 No effect of condition on dyssynchrony.
+
 ```{r}
 summary(glmer(entrain ~ condition + (1|speaker), d, family=binomial))
 ```
 
 No effect of perception of partner.
+
 ```{r}
 summary(glmer(entrain ~ closeness + (1|speaker), d, family=binomial))
 summary(glmer(entrain ~ similarity + (1|speaker), d, family=binomial))
@@ -1848,6 +2567,7 @@ summary(glmer(entrain ~ becomeFriends + (1|speaker), d, family=binomial))
 ```
 
 No effect of BFI scores.
+
 ```{r}
 summary(glmer(entrain ~ extraversion + (1|speaker), d, family=binomial))
 summary(glmer(entrain ~ openness + (1|speaker), d, family=binomial))
@@ -1859,7 +2579,6 @@ summary(glmer(entrain ~ neuroticism + (1|speaker), d, family=binomial))
 (It doesn't make sense to analyze the direction of the effect here---snychrony vs. dyssynchrony---because there were almost no synchrony effects.)
 
 (I also wanted to link the temperature and speech datasets to analyze them in relation to each other. But there are so few speech data points with significant entrainment, that it doesn't make sense to make this analysis.)
-
 
 # Session Info
 
