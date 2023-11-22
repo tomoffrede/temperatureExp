@@ -4,7 +4,7 @@ author: "Tom Offrede"
 output:
   html_document:
     toc: true
-    toc_depth: 4
+    toc_depth: 5
     toc_float: 
       collapsed: false
 ---
@@ -47,12 +47,12 @@ badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG
 * Second section of the experiment (Diapix)
     * f0 median increased only in the *close* condition (but model without `condition` preferred)
     * f0 max didn't change significantly
-    * f0 SD
+    * f0 SD didn't change significantly
 * Across entire experiment
     * f0 median increased only in the *close* condition
     * f0 max decreased in both conditions
     * f0 SD increased only in the *close* condition
-    
+
 **f0 entrainment**
 
 * Some participants entrained and some didn't; sometimes only in the first part of the experiment, sometimes in the second, sometimes across it all.
@@ -62,6 +62,7 @@ badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG
 # Notes
 
 * The check of residuals of logistic models below, was done following: <https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html>
+* When analyzing the effect of temperature change (categorical, per speaker) on f0 change (categorical, per speaker), some effects were positive in the model; but some of the categories that produce "significance" have too few data points, so I don't consider those "significant" results as actually meaningful or significant. A couple of times that that happens are indicated in the detailed analysis below, but after a few times that that happened I just ignored it as "non significant".
 
 # Individual change -- regardless of interlocutor
 
@@ -128,6 +129,59 @@ dat <- merge(ind |>
 dat$change <- relevel(dat$change, ref="ns")
 ```
 
+```{r}
+# join individual temperature change effects
+indTemp <- indTemp |> 
+  mutate(effect = case_when(
+    effect == "ns" ~ "tempNS",
+    effect == "increase" ~ "tempIncrease",
+    effect == "decrease" ~ "tempDecrease",
+  ))
+
+s <- dat |> 
+  mutate(change = case_when(
+    change == "ns" ~ "f0NS",
+    change == "increase" ~ "f0Increase",
+    change == "decrease" ~ "f0Decrease",
+  ))
+
+t1 <- indTemp |> 
+  filter(section=="entireExp") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "entireExp")
+
+t2 <- indTemp |> 
+  filter(section=="Lists") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "Lists")
+
+t3 <- indTemp |> 
+  filter(section=="Diapix") |> 
+  group_by(speaker) |>
+  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
+  mutate(section = "Diapix")
+# mutate(section = "Lists") # naming the Diapix section and "Lists" to pair these values with the f0 adaptation during "Lists", since temperature change takes a while to happen
+# this didn't bring about any new insights
+
+t <- rbind(t1, rbind(t2, t3))
+# t <- rbind(t1, t3)
+
+ts <- merge(t,
+            s |> 
+              select(-condition),
+            by=c("speaker", "section"), all=TRUE) |> 
+  mutate_at(c("speaker", "section", "Forehead", "Eyes", "Nose", "Cheeks", "feature", "change", "gender"), as.factor)
+
+ts$Forehead <- relevel(ts$Forehead, ref="tempNS")
+ts$Cheeks <- relevel(ts$Cheeks, ref="tempNS")
+ts$Eyes <- relevel(ts$Eyes, ref="tempNS")
+ts$Nose <- relevel(ts$Nose, ref="tempNS")
+ts$change <- relevel(ts$change, ref="f0NS")
+```
+
+
 ### Explore possible predictors
 
 #### First part of the experiment (Lists)
@@ -144,7 +198,7 @@ ggplot(dat |> filter(feature=="f0median", section=="Lists"), aes(condition, fill
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -192,6 +246,66 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0me
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Forehead)), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Forehead)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Nose)), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Nose)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
+```
+
+No effect of cheek temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0median", , !is.na(Cheeks)), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Cheeks)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 max
 
 No effect of condition
@@ -204,7 +318,7 @@ ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(condition, fill=ch
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -257,6 +371,66 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0ma
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Forehead)), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Forehead)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Nose)), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Nose)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
+```
+
+No effect of cheek temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Cheeks)), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Cheeks)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 SD
 
 No effect of condition
@@ -269,7 +443,7 @@ ggplot(dat |> filter(feature=="f0SD", section=="Lists"), aes(condition, fill=cha
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -322,6 +496,67 @@ tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Forehead)), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Forehead)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Nose)), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Nose)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 SD change
+(The model actually suggests that f0 SD decreased more when the temperature also decreased. But there are so few data points of `temperature decrease` that I don't think this is robust or meaningful.)
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
+```
+
+No effect of cheek temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Cheeks)), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Cheeks)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 #### Second part of the experiment (Diapix)
 
 ##### f0 median
@@ -336,7 +571,7 @@ ggplot(dat |> filter(feature=="f0median", section=="Diapix"), aes(condition, fil
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median", section=="Diapix"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -384,6 +619,66 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0me
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0median"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0median"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0median", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0median", section=="Diapix", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change")
+```
+
+No effect of cheek temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0median"), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0median", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 max
 
 No effect of condition
@@ -396,7 +691,7 @@ ggplot(dat |> filter(feature=="f0max", section=="Diapix"), aes(condition, fill=c
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max", section=="Diapix"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -444,6 +739,66 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0ma
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0max"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0max"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0max", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0max", section=="Diapix", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change")
+```
+
+No effect of cheek temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0max"), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0max", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 SD
 
 No effect of condition
@@ -456,7 +811,7 @@ ggplot(dat |> filter(feature=="f0SD", section=="Diapix"), aes(condition, fill=ch
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD", section=="Diapix"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -504,6 +859,65 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0SD
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0SD"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0SD"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0SD", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0SD", section=="Diapix", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
+```
+
+No effect of cheek temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="Diapix", feature=="f0SD"), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0SD", section=="Diapix"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
 
 #### Across entire experiment
 
@@ -519,7 +933,7 @@ ggplot(dat |> filter(feature=="f0median", section=="entireExp"), aes(condition, 
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median", section=="entireExp"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -567,6 +981,67 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0me
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0median"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0median"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0median", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 median change")
+```
+
+The model is weirdly producing NaNs for the category `tempDecrease` even when I've explicitly removed the NA values in the dataset (and also after `droplevel`-ing it). But anyway, there are such few values in the `tempNS` category that a real comparison wouldn't have been meaningful, like for other models above.
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0median", section=="entireExp", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+# emmeans(m, pairwise~Eyes, by="change")
+```
+
+No effect of cheek temperature change on f0 median change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0median") |> drop_na(), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 median change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0median", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 max
 
 No effect of condition
@@ -579,7 +1054,7 @@ ggplot(dat |> filter(feature=="f0max", section=="entireExp"), aes(condition, fil
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max", section=="entireExp"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -627,6 +1102,66 @@ tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0ma
   mutate(estimate = plogis(estimate))
 ```
 
+No effect of forehead temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0max"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0max"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 max change (but again, model not working even after filtering out NAs...)
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0max", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0max", section=="entireExp", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+# emmeans(m, pairwise~Eyes, by="change")
+```
+
+No effect of cheek temperature change on f0 max change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0max"), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 max change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0max", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
+```
+
 ##### f0 SD
 
 No effect of condition
@@ -639,7 +1174,7 @@ ggplot(dat |> filter(feature=="f0SD", section=="entireExp"), aes(condition, fill
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD"))) |> 
+tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="change")
@@ -685,6 +1220,66 @@ tidy(m <- nnet::multinom(change ~ conscientiousness, data=dat |> filter(feature=
 tidy(m <- nnet::multinom(change ~ neuroticism, data=dat |> filter(feature=="f0SD", section=="entireExp"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate))
+```
+
+No effect of forehead temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0SD"), aes(Forehead, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Forehead temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Forehead, by="change")
+```
+
+No effect of nose temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0SD"), aes(Nose, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Nose temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Nose, by="change")
+```
+
+No effect of eye temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0SD", !is.na(Eyes)), aes(Eyes, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Eye temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0SD", section=="entireExp", !is.na(Eyes)))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+# emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
+```
+
+No effect of cheek temperature change on f0 SD change
+```{r}
+ggplot(ts |> filter(section=="entireExp", feature=="f0SD"), aes(Cheeks, fill=change))+
+  geom_bar()+
+  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
+  ggtitle("Cheek temp. change and f0 SD change")
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0SD", section=="entireExp"))) |> 
+  as_tibble() |> 
+  mutate(estimate = plogis(estimate))
+emmeans(m, pairwise~Cheeks, by="change")
 ```
 
 ## All speakers pulled together
@@ -2203,6 +2798,7 @@ hist(table(all$speaker[all$entrain=="yes"]))
 There doesn't seem to be a relationship between significant temperature change and a participant's tendency to converge or diverge from their partner. (Looking at the data set itself, there also doesn't seem to be any patterns.)
 
 ```{r}
+load(paste0(here::here(), "/data/individualTemp.RData"))
 t1 <- indTemp |> 
   filter(section=="entireExp") |> 
   group_by(speaker) |>
@@ -2220,8 +2816,11 @@ t3 <- indTemp |>
   group_by(speaker) |>
   pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
   mutate(section = "Diapix")
+# mutate(section = "Lists") # naming the Diapix section and "Lists" to pair these values with the f0 adaptation during "Lists", since temperature change takes a while to happen
+# this also didn't bring about any new insights
 
 t <- rbind(t1, rbind(t2, t3))
+# t <- rbind(t1, t3)
 
 dat <- merge(t,
              all |> 

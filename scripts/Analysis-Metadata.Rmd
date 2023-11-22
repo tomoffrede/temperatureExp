@@ -17,6 +17,13 @@ folderData <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/temperature
 load(paste0(folderData, "metadata-clean.RData"))
 ```
 
+# Summary of results
+
+* People found the room warmer at the end of the experiment in the *close* condition (already accounting for real room temperature).
+* People in the *close* condition felt *closer* to their partners and *liked* them more.
+* There was a positive correlation between all the variables referring to their perception of their partner (closeness, similarity, how much they liked them, how much they wanted to be friends).
+    * But I'm not sure about principal components...
+
 # Descriptives
 
 ## Gender
@@ -81,23 +88,44 @@ names(m)
 
 ### Thermal Comfort
 
-People tended strongly (but p = 0.07) to find the room hotter after the interaction in the Close condition. Before the interaction, there was no condition difference.
+People found the room warmer after the interaction in the Close condition (p = 0.02, already accounting for the room temperature). Before the interaction, there was no condition difference, and the only significant predictor of thermal comfort/perception was the real room temperature.
 
 ```{r, echo=FALSE}
-ggplot(m, aes(condition, comfortPre))+
+ggplot(m, aes(condition, comfortPre))+ 
   geom_boxplot()+
   ggtitle("Thermal Comfort before Interaction")
 
 ggplot(m, aes(condition, comfortPost))+
   geom_boxplot()+
   ggtitle("Thermal Comfort after Interaction")
+
+ggplot(m, aes(realTempPre, comfortPre))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
+
+ggplot(m, aes(realTempPost, comfortPost))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)
 ```
 
 ```{r}
-summary(lm(comfortPre ~ condition, m))
-summary(lm(comfortPost ~ condition, m))
-```
+summary(r <- lm(comfortPre ~ condition, m))
+AIC(r)
+summary(r0 <- lm(comfortPre ~ realTempPre, m)) # preferred model!
+AIC(r0)
+summary(r1 <- lm(comfortPre ~ realTempPre + condition, m))
+AIC(r1)
 
+
+summary(r <- lm(comfortPost ~ condition, m))
+AIC(r)
+summary(r0 <- lm(comfortPost ~ realTempPost, m))
+AIC(r0)
+summary(r1 <- lm(comfortPost ~ realTempPost + condition, m)) # preferred model!
+AIC(r1)
+```
 
 ### Temperature Guessing
 
@@ -203,6 +231,28 @@ ggplot(m, aes(condition, becomeFriends))+
 ```{r}
 summary(lm(becomeFriends ~ condition, m))
 ```
+
+## Correlation between RCIT variables
+
+There is clearly a large correlation between most of the variables.
+But if we wanted to identify the principal components to summarize/get the average of the questionnaire scores, it's not clear what items should be allocated to which components.
+
+```{r}
+Hmisc::rcorr(as.matrix(m |> select(closeness, similarity, likeability, becomeFriends))) # to also see p values (all very low!)
+
+# now do PCA (principal components analysis)
+
+corM <- cor(m |> select(closeness, similarity, likeability, becomeFriends))
+ggcorrplot::ggcorrplot(corM)
+summary(pc <- princomp(corM))
+factoextra::fviz_eig(pc, addlabels = TRUE)
+factoextra::fviz_pca_var(pc, col.var = "cos2") # i guess this suggests there are 3 principal components
+pc$loadings[,1:3] # but the loadings don't really reflect those suggested dimensions...
+
+
+parameters::principal_components(m |> select(closeness, similarity, likeability, becomeFriends)) # and if we use another method, it suggests only 1 component
+```
+
 
 ## Personality Scores Affected Ratings?
 
