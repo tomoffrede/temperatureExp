@@ -153,29 +153,42 @@ for(i in 1:nrow(files)){
 f0save <- f0
 # f0 <- f0save
 
-dat <- f0 |> 
+load(paste0(folderData, "metadata-clean.RData"))
+
+dat <- merge(f0, m |> select(speaker, gender), by="speaker") |> 
   mutate_at(c("f0mean", "f0med", "f0sd", "f0max", "turn", "IPU", "turnOnset", "turnOffset", "ipuOnset", "ipuOffset"), as.numeric) |>
   mutate_at(c("file", "speaker"), as.factor) |> 
+  group_by(speaker) |> 
+  mutate(f0mean = ifelse(is.nan(f0mean), NA, f0mean),
+         f0med = ifelse(is.nan(f0med), NA, f0med),
+         f0sd = ifelse(is.nan(f0sd), NA, f0sd),
+         f0max = ifelse(is.nan(f0max), NA, f0max),
+         f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup() |> 
+  group_by(gender) |> 
+  mutate(f0meanzGender = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medzGender = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdzGender = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxzGender = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup() |> 
   group_by(file, speaker) |>
   mutate(index = 1:n()) |> 
   group_by(file, speaker, turn) |>
   mutate(IPU = 1:n(),
-         turnf0mean = mean(f0mean, na.rm=TRUE),
-         turnf0med = mean(f0med, na.rm=TRUE),
-         turnf0sd = mean(f0sd, na.rm=TRUE),
-         turnf0max = mean(f0max, na.rm=TRUE),
+         turnf0mean = mean(f0meanz, na.rm=TRUE),
+         turnf0med = mean(f0medz, na.rm=TRUE),
+         turnf0sd = mean(f0sdz, na.rm=TRUE),
+         turnf0max = mean(f0maxz, na.rm=TRUE),
          turnOnset = min(turnOnset), # correcting the turnOnsets and Offsets bc those of the turns with overlaps got saved as the intervals between overlaps, not start and end of actual turn
          turnOffset = max(turnOffset)) |> 
   ungroup() |> 
   mutate(turnDur = turnOffset - turnOnset,
          ipuDur = ipuOffset - ipuOnset,
-         # qual = ifelse(grepl("D1|D2", file), "bad", "good"),
          order = case_when(task=="Lists" ~ 1, task=="Diapix" ~ 2),
          dyad = substr(file, 1, 3),
-         f0mean = ifelse(is.nan(f0mean), NA, f0mean),
-         f0med = ifelse(is.nan(f0med), NA, f0med),
-         f0sd = ifelse(is.nan(f0sd), NA, f0sd),
-         f0max = ifelse(is.nan(f0max), NA, f0max),
          turnf0mean = ifelse(is.nan(turnf0mean), NA, turnf0mean),
          turnf0med = ifelse(is.nan(turnf0med), NA, turnf0med),
          turnf0sd = ifelse(is.nan(turnf0sd), NA, turnf0sd),
@@ -210,15 +223,6 @@ dat <- dat |>
   mutate(prevTurn = ifelse(speaker == firstSp & turn == 1, NA, prevTurn)) |>
   ungroup()
 
-#############################
-# d <- dat |>
-#   filter(file=="KDA-D1") |>
-#   select(file, speaker, turn, turnOnset, turnOffset, f0mean, f0med, f0max, f0sd) |>
-#   arrange(turnOnset) |> 
-#   filter(!duplicated(paste(speaker, turn)))
-
-#############################
-
 # save the f0 value of the previous turn (both of the last IPU and the average of the previous turn)
 for(i in 1:nrow(dat)){
   # for(i in 859:nrow(dat)){
@@ -229,22 +233,22 @@ for(i in 1:nrow(dat)){
                                  dat$turn == dat$prevTurn[i]])
     
     # and get f0 values from that IPU
-    prevf0mean <- dat$f0mean[dat$file == dat$file[i] &
-                               dat$speaker != dat$speaker[i] &
-                               dat$turn == dat$prevTurn[i] &
-                               dat$IPU == prevLastIPU]
-    prevf0med <- dat$f0med[dat$file == dat$file[i] &
-                             dat$speaker != dat$speaker[i] &
-                             dat$turn == dat$prevTurn[i] &
-                             dat$IPU == prevLastIPU]
-    prevf0sd <- dat$f0sd[dat$file == dat$file[i] &
-                           dat$speaker != dat$speaker[i] &
-                           dat$turn == dat$prevTurn[i] &
-                           dat$IPU == prevLastIPU]
-    prevf0max <- dat$f0max[dat$file == dat$file[i] &
-                             dat$speaker != dat$speaker[i] &
-                             dat$turn == dat$prevTurn[i] &
-                             dat$IPU == prevLastIPU]
+    prevf0mean <- dat$f0meanzGender[dat$file == dat$file[i] &
+                                dat$speaker != dat$speaker[i] &
+                                dat$turn == dat$prevTurn[i] &
+                                dat$IPU == prevLastIPU]
+    prevf0med <- dat$f0medzGender[dat$file == dat$file[i] &
+                              dat$speaker != dat$speaker[i] &
+                              dat$turn == dat$prevTurn[i] &
+                              dat$IPU == prevLastIPU]
+    prevf0sd <- dat$f0sdzGender[dat$file == dat$file[i] &
+                            dat$speaker != dat$speaker[i] &
+                            dat$turn == dat$prevTurn[i] &
+                            dat$IPU == prevLastIPU]
+    prevf0max <- dat$f0maxzGender[dat$file == dat$file[i] &
+                              dat$speaker != dat$speaker[i] &
+                              dat$turn == dat$prevTurn[i] &
+                              dat$IPU == prevLastIPU]
     
     # get f0 average over all of previous turn
     prevTurnf0mean <- unique(dat$turnf0mean[dat$file == dat$file[i] &
@@ -301,6 +305,7 @@ for(i in 1:nrow(dat)){
     }
   }
 }
+
 datsave <- dat
 # dat <- datsave
 
@@ -310,10 +315,10 @@ for(s in unique(dat$speaker)){
                          gsub("-A", "-B", s),
                          gsub("-B", "-A", s))
   for(f in unique(dat$file[dat$speaker==s])){
-    ipusMean <- dat$f0mean[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0mean)]
-    ipusMed <- dat$f0med[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0med)]
-    ipusSD <- dat$f0sd[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0sd)]
-    ipusMax <- dat$f0max[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0max)]
+    ipusMean <- dat$f0meanzGender[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0meanzGender)]
+    ipusMed <- dat$f0medzGender[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0medzGender)]
+    ipusSD <- dat$f0sdzGender[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0sdzGender)]
+    ipusMax <- dat$f0maxzGender[dat$file==f & dat$speaker==interlocutor & !is.na(dat$f0maxzGender)]
     
     for(i in 1:nrow(dat)){
       if(dat$speaker[i]==s){
@@ -322,22 +327,22 @@ for(s in unique(dat$speaker)){
             lengthMean <- ifelse(length(ipusMean[ipusMean %!in% dat$prevf0mean[i]]) >= 10, 10, length(ipusMean[ipusMean %!in% dat$prevf0mean[i]])-1)
             ipusMeanCurrent <- sample(ipusMean[ipusMean %!in% dat$prevf0mean[i]], lengthMean, replace=FALSE)
             dat[i, c(paste0("mockMean", 1:lengthMean))] <- as.list(ipusMeanCurrent)
-            dat[i, c(paste0("mockMeanDiff", 1:lengthMean))] <- as.list(abs(dat$f0mean[i] - ipusMeanCurrent))
+            dat[i, c(paste0("mockMeanDiff", 1:lengthMean))] <- as.list(abs(dat$f0meanzGender[i] - ipusMeanCurrent))
             
             lengthMed <- ifelse(length(ipusMed[ipusMed %!in% dat$prevf0med[i]]) >= 10, 10, length(ipusMed[ipusMed %!in% dat$prevf0med[i]])-1)
             ipusMedCurrent <- sample(ipusMed[ipusMed %!in% dat$prevf0med[i]], lengthMed, replace=FALSE)
             dat[i, c(paste0("mockMed", 1:lengthMed))] <- as.list(ipusMedCurrent)
-            dat[i, c(paste0("mockMedDiff", 1:lengthMed))] <- as.list(abs(dat$f0med[i] - ipusMedCurrent))
-
+            dat[i, c(paste0("mockMedDiff", 1:lengthMed))] <- as.list(abs(dat$f0medzGender[i] - ipusMedCurrent))
+            
             lengthSD <- ifelse(length(ipusSD[ipusSD %!in% dat$prevf0sd[i]]) >= 10, 10, length(ipusSD[ipusSD %!in% dat$prevf0sd[i]])-1)
             ipusSDCurrent <- sample(ipusSD[ipusSD %!in% dat$prevf0sd[i]], lengthSD, replace=FALSE)
             dat[i, c(paste0("mockSd", 1:lengthSD))] <- as.list(ipusSDCurrent)
-            dat[i, c(paste0("mockSdDiff", 1:lengthSD))] <- as.list(abs(dat$f0sd[i] - ipusSDCurrent))
+            dat[i, c(paste0("mockSdDiff", 1:lengthSD))] <- as.list(abs(dat$f0sdzGender[i] - ipusSDCurrent))
             
             lengthMax <- ifelse(length(ipusMax[ipusMax %!in% dat$prevf0max[i]]) >= 10, 10, length(ipusMax[ipusMax %!in% dat$prevf0max[i]])-1)
             ipusMaxCurrent <- sample(ipusMax[ipusMax %!in% dat$prevf0max[i]], lengthMax, replace=FALSE)
             dat[i, c(paste0("mockMax", 1:lengthMax))] <- as.list(ipusMaxCurrent)
-            dat[i, c(paste0("mockMaxDiff", 1:lengthMax))] <- as.list(abs(dat$f0max[i] - ipusMaxCurrent))
+            dat[i, c(paste0("mockMaxDiff", 1:lengthMax))] <- as.list(abs(dat$f0maxzGender[i] - ipusMaxCurrent))
           }
         }
       }
@@ -348,10 +353,10 @@ for(s in unique(dat$speaker)){
 dat <- dat |> 
   filter(IPU == 1) |> 
   group_by(speaker) |> 
-  mutate(f0meanDiff = abs(f0mean - prevf0mean),
-         f0medDiff = abs(f0med - prevf0med),
-         f0sdDiff = abs(f0sd - prevf0sd),
-         f0maxDiff = abs(f0max - prevf0max),
+  mutate(f0meanDiff = abs(f0meanzGender - prevf0mean),
+         f0medDiff = abs(f0medzGender - prevf0med),
+         f0sdDiff = abs(f0sdzGender - prevf0sd),
+         f0maxDiff = abs(f0maxzGender - prevf0max),
          # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
          # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
          # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
@@ -374,10 +379,10 @@ dat <- dat |>
 
 ipus <- dat |> # same as the one above but without filtering out all the 
   group_by(speaker) |> 
-  mutate(f0meanDiff = abs(f0mean - prevf0mean),
-         f0medDiff = abs(f0med - prevf0med),
-         f0sdDiff = abs(f0sd - prevf0sd),
-         f0maxDiff = abs(f0max - prevf0max),
+  mutate(f0meanDiff = abs(f0meanzGender - prevf0mean),
+         f0medDiff = abs(f0medzGender - prevf0med),
+         f0sdDiff = abs(f0sdzGender - prevf0sd),
+         f0maxDiff = abs(f0maxzGender - prevf0max),
          # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
          # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
          # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
@@ -408,8 +413,8 @@ load(paste0(folderData, "metadata-clean.RData"))
 
 dat0 <- dat # in case we want to check it before it gets merged
 
-dat <- merge(dat, m, by="speaker")
-ipus <- merge(ipus, m, by="speaker")
+dat <- merge(dat, m |> select(-gender), by="speaker") # selecting gender out because it's already in the dataset from above
+ipus <- merge(ipus, m |> select(-gender), by="speaker")
 
 save(dat, file=paste0(folderData, "speechData.RData"))
 save(ipus, file=paste0(folderData, "speechData-allIPUs.RData"))
