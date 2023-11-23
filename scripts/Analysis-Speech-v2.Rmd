@@ -1,5 +1,5 @@
 ---
-title: "Analysis-Speech"
+title: "Analysis - Speech - All models"
 author: "Tom Offrede"
 output:
   html_document:
@@ -76,40 +76,40 @@ names(ind) <- c("speaker", "condition", "feature", "section", "t", "p")
 ```{r}
 for(s in unique(ipus$speaker)){
   # f0 median
-  c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s)))
+  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s)))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "entireExp",
                          c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Lists",
                          c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0med[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0med ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+  if(!all(is.na(ipus$f0medz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
     ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Diapix",
                            c$statistic[2], c$p.value[2])
   }
   
   # f0 max
-  c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s)))
+  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s)))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "entireExp",
                          c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Lists",
                          c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0max[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0max ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+  if(!all(is.na(ipus$f0maxz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
     ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Diapix",
                            c$statistic[2], c$p.value[2])
   }
   
   # f0 SD
-  c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s)))
+  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s)))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "entireExp",
                          c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
+  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
   ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Lists",
                          c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0sd[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0sd ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
+  if(!all(is.na(ipus$f0sdz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
+    c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
     ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Diapix",
                            c$statistic[2], c$p.value[2])
   }
@@ -1304,8 +1304,8 @@ ggplot(ipus, aes(turnOverall, f0med))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Entire experiment")
-summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus))
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m1))
@@ -1317,8 +1317,8 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0med))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1330,8 +1330,8 @@ ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0med))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Diapix (2nd part of experiment)")
-summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
-summary(m1 <- lmer(f0med ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1342,11 +1342,11 @@ plot(fitted(m), resid(m))
 Checking if f0 median changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
 
 ```{r}
-summary(m <- lmer(f0med ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0med ~ turnOverall : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0med ~ turnOverall : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0med ~ turnOverall : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0med ~ turnOverall : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0medz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0medz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0medz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0medz ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -1374,8 +1374,8 @@ ggplot(ipus, aes(turnOverall, f0max))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Entire experiment")
-summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus))
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1387,8 +1387,8 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0max))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m1))
@@ -1400,8 +1400,8 @@ ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0max))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Diapix (2nd part of experiment)")
-summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
-summary(m1 <- lmer(f0max ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1412,11 +1412,11 @@ plot(fitted(m), resid(m))
 Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
 
 ```{r}
-summary(m <- lmer(f0max ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0max ~ turnOverall : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0max ~ turnOverall : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0max ~ turnOverall : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0max ~ turnOverall : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0maxz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0maxz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0maxz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0maxz ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -1446,8 +1446,8 @@ ggplot(ipus, aes(turnOverall, f0sd))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Entire experiment")
-summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus))
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m1))
@@ -1459,8 +1459,8 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sd))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1472,8 +1472,8 @@ ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sd))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Diapix (2nd part of experiment)")
-summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
-summary(m1 <- lmer(f0sd ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1484,11 +1484,11 @@ plot(fitted(m), resid(m))
 Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
 
 ```{r}
-summary(m <- lmer(f0sd ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0sd ~ turnOverall : closeness + (1|speaker), ipus))
-summary(m2 <- lmer(f0sd ~ turnOverall : similarity + (1|speaker), ipus))
-summary(m3 <- lmer(f0sd ~ turnOverall : likeability + (1|speaker), ipus))
-summary(m4 <- lmer(f0sd ~ turnOverall : becomeFriends + (1|speaker), ipus))
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sdz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0sdz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0sdz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0sdz ~ turnOverall : becomeFriends + (1|speaker), ipus))
 
 anova(m, m1)
 anova(m, m2)
@@ -2137,7 +2137,7 @@ print(count)
 ### Across the entire experiment
 
 ```{r}
-ggplot(dat, aes(f0med, prevf0med))+
+ggplot(dat, aes(f0medzGender, prevf0med))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2149,12 +2149,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
-  c <- cor.test(d$f0med, d$prevf0med,
+  c <- cor.test(d$f0medzGender, d$prevf0med,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0medzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2204,7 +2204,7 @@ print(count)
 ### Only in the first part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Lists"), aes(f0med, prevf0med))+
+ggplot(dat |> filter(task=="Lists"), aes(f0medzGender, prevf0med))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2216,12 +2216,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0med, d$prevf0med,
+  c <- cor.test(d$f0medzGender, d$prevf0med,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0medzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2271,7 +2271,7 @@ print(count)
 ### Only in the second part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix"), aes(f0med, prevf0med))+
+ggplot(dat |> filter(task=="Diapix"), aes(f0medzGender, prevf0med))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2285,12 +2285,12 @@ for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
   if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
   
-  c <- cor.test(d$f0med, d$prevf0med,
+  c <- cor.test(d$f0medzGender, d$prevf0med,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMed", i)], d$f0med,
+    c <- cor.test(d[,paste0("mockMed", i)], d$f0medzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2342,7 +2342,7 @@ print(count)
 ### Across the entire experiment
 
 ```{r}
-ggplot(dat, aes(f0max, prevf0max))+
+ggplot(dat, aes(f0maxzGender, prevf0max))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2354,12 +2354,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
-  c <- cor.test(d$f0max, d$prevf0max,
+  c <- cor.test(d$f0maxzGender, d$prevf0max,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0maxzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2409,7 +2409,7 @@ print(count)
 ### Only in the first part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Lists"), aes(f0max, prevf0max))+
+ggplot(dat |> filter(task=="Lists"), aes(f0maxzGender, prevf0max))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2421,12 +2421,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0max, d$prevf0max,
+  c <- cor.test(d$f0maxzGender, d$prevf0max,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0maxzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2476,7 +2476,7 @@ print(count)
 ### Only in the second part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix"), aes(f0max, prevf0max))+
+ggplot(dat |> filter(task=="Diapix"), aes(f0maxzGender, prevf0max))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2490,12 +2490,12 @@ for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
   if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
   
-  c <- cor.test(d$f0max, d$prevf0max,
+  c <- cor.test(d$f0maxzGender, d$prevf0max,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMax", i)], d$f0max,
+    c <- cor.test(d[,paste0("mockMax", i)], d$f0maxzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2547,7 +2547,7 @@ print(count)
 ### Across the entire experiment
 
 ```{r}
-ggplot(dat, aes(f0sd, prevf0sd))+
+ggplot(dat, aes(f0sdzGender, prevf0sd))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2559,12 +2559,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s)
-  c <- cor.test(d$f0sd, d$prevf0sd,
+  c <- cor.test(d$f0sdzGender, d$prevf0sd,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sdzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2614,7 +2614,7 @@ print(count)
 ### Only in the first part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Lists"), aes(f0sd, prevf0sd))+
+ggplot(dat |> filter(task=="Lists"), aes(f0sdzGender, prevf0sd))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2626,12 +2626,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0sd, d$prevf0sd,
+  c <- cor.test(d$f0sdzGender, d$prevf0sd,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sdzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -2681,7 +2681,7 @@ print(count)
 ### Only in the second part of the experiment
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix"), aes(f0sd, prevf0sd))+
+ggplot(dat |> filter(task=="Diapix"), aes(f0sdzGender, prevf0sd))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -2695,12 +2695,12 @@ for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Diapix")
   if(nrow(d) ==0){next} # because we don't have the Diapix files for one dyad
   
-  c <- cor.test(d$f0sd, d$prevf0sd,
+  c <- cor.test(d$f0sdzGender, d$prevf0sd,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockSd", i)], d$f0sd,
+    c <- cor.test(d[,paste0("mockSd", i)], d$f0sdzGender,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
