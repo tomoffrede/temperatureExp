@@ -127,6 +127,36 @@ summary(r1 <- lm(comfortPost ~ realTempPost + condition, m)) # preferred model!
 AIC(r1)
 ```
 
+#### Thermal comfort & questionnaire scores
+
+Thermal comfort at the end of the experiment was not related to the participants' perception of their partner (although all the non-significant effects are in the direction we would expect, i.e. warmer temperature perception positive with warmer social perception).
+
+```{r}
+ggplot(m, aes(closeness, comfortPost))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(m, aes(similarity, comfortPost))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(m, aes(likeability, comfortPost))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(m, aes(becomeFriends, comfortPost))+
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+```{r}
+summary(r <- lm(comfortPost ~ closeness, m))
+summary(r <- lm(comfortPost ~ similarity, m))
+summary(r <- lm(comfortPost ~ likeability, m))
+summary(r <- lm(comfortPost ~ becomeFriends, m))
+```
+
+
 ### Temperature Guessing
 
 No difference in temperature perception before and after interaction between conditions.
