@@ -36,22 +36,23 @@ badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG
 * Some participants significantly increased or decreased on different f0 measures to different extents, but there were almost no relationships with other predictors. This is the exception:
     * First part of the experiment (Lists)
         * f0 max *decreased less often* when the speaker felt *closer* to their partner.
+        * f0 max *decreased less often* when the speaker *liked* their partner *more* (small effect).
         * f0 SD tended to *increase more often* when the person scored higher in *neuroticism*.
 
 **f0 change regardless of interlocutor** (all speakers together; using continuous values)
 
 * First section of the experiment (Lists)
-    * f0 median didn't change significantly
-    * f0 max decreased only in the *impersonal* condition
-    * f0 SD decreased in both conditions
+    * f0 median didn’t change in any condition.
+    * f0 max tended to decrease only in the impersonal condition, but if we’re being strict (AIC of model with condition was 1.7 smaller than without), there f0 max went down in both conditions.
+    * f0 SD decreased in both conditions.
 * Second section of the experiment (Diapix)
-    * f0 median increased only in the *close* condition (but model without `condition` preferred)
-    * f0 max didn't change significantly
-    * f0 SD didn't change significantly
+    * f0 median increased in both conditions.
+    * f0 max didn’t change significantly in either condition.
+    * f0 SD didn’t change in either condition.
 * Across entire experiment
-    * f0 median increased only in the *close* condition
-    * f0 max decreased in both conditions
-    * f0 SD increased only in the *close* condition
+    * f0 median increased in both conditions.
+    * f0 max decreased in both conditions.
+    * f0 SD didn’t change in either condition.
 
 **f0 entrainment**
 
@@ -334,12 +335,20 @@ ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, closeness)
 tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate))
+```
 
-tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+f0 max also decreased *less* (smaller effect) when the speaker *liked* their partner *more*.
+```{r}
+ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, likeability))+
+  geom_boxplot()
+```
+
+```{r}
+tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate))
 
-tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
+tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate))
 
@@ -1286,11 +1295,9 @@ emmeans(m, pairwise~Cheeks, by="change")
 
 ### f0 median
 
--   Across entire experiment: f0 median increases only in *close* condition
--   Only during question lists: f0 median doesn't change in any group.
--   Only during Diapix: f0 median tends to go up only in the *close* condition, BUT the model with `condition` was *not* preferred (even though the difference in the graph is huge)
-
-(This was the same regardless of whether males were included.)
+-   Across entire experiment: f0 median increases in both conditions.
+-   Only during question lists: f0 median doesn't change in any condition.
+-   Only during Diapix: f0 median increases in both conditions.
 
 ```{r}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -1299,7 +1306,7 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turnOverall, f0med))+
+ggplot(ipus, aes(turnOverall, f0medz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1308,11 +1315,12 @@ summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus))
 summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
-hist(resid(m1))
-qqnorm(resid(m1));qqline(resid(m1))
-plot(fitted(m1), resid(m1))
-
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0med))+
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1324,8 +1332,9 @@ par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
-
-ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0med))+
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0medz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1356,11 +1365,9 @@ anova(m, m4)
 
 ### f0 max
 
--   Across entire experiment: f0 max decreases in both conditions
--   Only during question lists: f0 max decreases only in the *impersonal* condition
--   Only during Diapix: f0 max doesn't change significantly for either group
-
-(This was the same regardless of whether males were included.)
+-   Across entire experiment: f0 max decreases in both conditions.
+-   Only during question lists: f0 max tends to decrease only in the *impersonal* condition, but if we're being strict (AIC of model with `condition` was 1.7 smaller than without), there f0 max went down in both conditions.
+-   Only during Diapix: f0 max doesn't change significantly for either group.
 
 ```{r}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -1369,20 +1376,21 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turnOverall, f0max))+
+ggplot(ipus, aes(turnOverall, f0maxz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Entire experiment")
-summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus))
-summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus))
+summary(m <- lm(f0maxz ~ turnOverall, ipus))
+summary(m1 <- lm(f0maxz ~ turnOverall : condition, ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
-
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0max))+
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1391,11 +1399,12 @@ summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="List
 summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
-hist(resid(m1))
-qqnorm(resid(m1));qqline(resid(m1))
-plot(fitted(m1), resid(m1))
-
-ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0max))+
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0maxz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1426,13 +1435,9 @@ anova(m, m4)
 
 ### f0 SD
 
--   Across entire experiment: f0 SD increases only in the *close* condition
--   Only during question lists: f0 SD goes down in both conditions
--   Only during Diapix: f0 SD doesn't change for either condition
-
-This is weird... if SD went down in the close condition when taking each section separately, why does it not changing when taking the entire experiment?
-
-(This was the same regardless of whether males were included.)
+-   Across entire experiment: f0 SD doesn't change in either condition.
+-   Only during question lists: f0 SD decreases in both conditions.
+-   Only during Diapix: f0 SD doesn't change in either condition.
 
 ```{r}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -1441,7 +1446,7 @@ load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 ```
 
 ```{r}
-ggplot(ipus, aes(turnOverall, f0sd))+
+ggplot(ipus, aes(turnOverall, f0sdz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1450,11 +1455,12 @@ summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus))
 summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
-hist(resid(m1))
-qqnorm(resid(m1));qqline(resid(m1))
-plot(fitted(m1), resid(m1))
-
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sd))+
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1466,8 +1472,9 @@ par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
-
-ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sd))+
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sdz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
@@ -1495,6 +1502,47 @@ anova(m, m2)
 anova(m, m3)
 anova(m, m4)
 ```
+
+### All f0 measures & IPU length
+
+(These analyses are using the non-z-scored values.)
+
+**f0 median**: the regression suggests a negative relationship between f0 median and IPU duration, but the residuals are very heteroskedastic and a look at the raw data shows it's more complex than that.
+```{r}
+ggplot(ipus, aes(f0med, ipuDur))+
+  geom_point()+
+  geom_smooth()
+summary(m <- lmer(f0med ~ ipuDur + (1|speaker), ipus))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+**f0 max**: it's a more robust finding that longer IPUs have higher f0 max values.
+```{r}
+ggplot(ipus, aes(f0max, ipuDur))+
+  geom_point()+
+  geom_smooth()
+summary(m <- lmer(f0max ~ ipuDur + (1|speaker), ipus))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+**f0 SD**: again, a positive relation is suggested between f0 SD and IPU duration, but the plot shows it isn't linear, and the residuals are again very heteroskedastic.
+```{r}
+ggplot(ipus, aes(f0sd, ipuDur))+
+  geom_point()+
+  geom_smooth()
+summary(m <- lm(f0sd ~ ipuDur, ipus))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
 
 # Local convergence
 
@@ -2984,6 +3032,7 @@ d <- merge(all |> filter(type == "convergence") |> select(-condition),
   )) |> 
   mutate_at(c("entrain", "direction", "type", "effect"), as.factor) |> 
   mutate_at(c("coefficient"), as.numeric)
+d$effect <- relevel(d$effect, ref="ns")
 ```
 
 No effect of condition.
@@ -3042,7 +3091,7 @@ d <- merge(all |> filter(type == "convergence") |> select(-condition),
     entrain == "yes" ~ direction
   )) |> 
   mutate_at(c("entrain", "direction", "type", "effect"), as.factor)
-# d$direction <- relevel(d$direction, ref="no")
+d$effect <- relevel(d$effect, ref="ns")
 ```
 
 Condition: no effect
@@ -3093,7 +3142,7 @@ tidy(m <- nnet::multinom(effect ~ condition, data=d)) |>
 No effect of perception of partner
 
 ```{r}
-tidy(m <- nnet::multinom(direction ~ closeness, data=d)) |> 
+tidy(m <- nnet::multinom(effect ~ closeness, data=d)) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate))
 
