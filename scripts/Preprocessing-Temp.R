@@ -187,9 +187,13 @@ for(s in unique(dat$speaker)){
   }
 }
 
-dat <- merge(dat, m, by=c("speaker", "stage"))
+dat <- merge(dat, m, by=c("speaker", "stage")) |> 
+  group_by(speaker, ROI) |> # z-score temperature
+  mutate(tempz = (temperature - mean(temperature, na.rm=TRUE)) / sd(temperature, na.rm=TRUE)) |> 
+  ungroup()
 datChange <- merge(datChange, m |> select(-c(stage, roomTemp)) |> filter(!duplicated(speaker)), by="speaker") |> 
   mutate_at(c("tempChangeLists", "tempChangeDiapix", "tempChangeEntireExp"), as.numeric)
+  
 
 save(dat, file=paste0(here::here(), "/data/tempData.RData"))
 save(datChange, file=paste0(here::here(), "/data/tempDataChange.RData"))
