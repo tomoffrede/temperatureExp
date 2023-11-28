@@ -81,7 +81,7 @@ table(m$convFriends)
 
 ## Manipulation Check
 
-```{r}
+```{r, include=FALSE}
 names(m)
 ```
 
