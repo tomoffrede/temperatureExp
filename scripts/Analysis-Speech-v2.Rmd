@@ -1544,6 +1544,297 @@ plot(fitted(m), resid(m))
 ```
 
 
+### Without domino task
+
+```{r, include=FALSE}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+ipus <- merge(ipus, 
+              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
+              by = "dyad", all=TRUE) |> 
+  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
+  mutate(delete = ifelse(
+    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
+    "del",
+    "keep"
+  )) |>
+  filter(delete == "keep") |> 
+  select(-delete) |> 
+  group_by(speaker) |> 
+  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup()
+```
+
+#### f0 median
+
+-   Across entire experiment: f0 median increases in both conditions.
+-   Only during question lists: f0 median doesn't change in any condition.
+-   Only during Diapix: f0 median increases in both conditions.
+
+```{r}
+ggplot(ipus, aes(turnOverall, f0medz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus)) # the model is singular, so adding or removing random effects isn't making any difference
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0medz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix"))) # this was the preferred model, even if the effect for both 
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
+```
+
+Checking if f0 median changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+
+```{r}
+# entire experiment
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0medz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0medz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0medz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0medz ~ turnOverall : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# lists
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m2 <- lmer(f0medz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m3 <- lmer(f0medz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m4 <- lmer(f0medz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Lists")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# diapix
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0medz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m2 <- lmer(f0medz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m3 <- lmer(f0medz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m4 <- lmer(f0medz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Diapix")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
+#### f0 max
+
+-   Across entire experiment: f0 max decreases in both conditions.
+-   Only during question lists: f0 max doesn't change in either condition.
+-   Only during Diapix: f0 max doesn't change in either condition.
+
+```{r}
+ggplot(ipus, aes(turnOverall, f0maxz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lm(f0maxz ~ turnOverall, ipus))
+summary(m1 <- lm(f0maxz ~ turnOverall : condition, ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0maxz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+One exception: f0 max seems to have decreased more for people that felt closer to their partner.
+
+```{r}
+# entire experiment
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0maxz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0maxz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0maxz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0maxz ~ turnOverall : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# lists
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m2 <- lmer(f0maxz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m3 <- lmer(f0maxz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m4 <- lmer(f0maxz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Lists")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# diapix
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m2 <- lmer(f0maxz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m3 <- lmer(f0maxz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m4 <- lmer(f0maxz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Diapix")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
+#### f0 SD
+
+-   Across entire experiment: f0 SD doesn't change in either condition.
+-   Only during question lists: f0 SD decreases in both conditions.
+-   Only during Diapix: f0 SD doesn't change in either condition.
+
+```{r}
+ggplot(ipus, aes(turnOverall, f0sdz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Entire experiment")
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+```{r}
+ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sdz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Diapix (2nd part of experiment)")
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Diapix")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Checking if f0 SD changes across time in interaction with questionnaire scores: Even though many of the models are significant, their AIC is not preferred over the model without the questionnaire scores.
+
+```{r}
+# entire experiment
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0sdz ~ turnOverall : closeness + (1|speaker), ipus))
+summary(m2 <- lmer(f0sdz ~ turnOverall : similarity + (1|speaker), ipus))
+summary(m3 <- lmer(f0sdz ~ turnOverall : likeability + (1|speaker), ipus))
+summary(m4 <- lmer(f0sdz ~ turnOverall : becomeFriends + (1|speaker), ipus))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# lists
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m2 <- lmer(f0sdz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m3 <- lmer(f0sdz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m4 <- lmer(f0sdz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Lists")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+
+# diapix
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m2 <- lmer(f0sdz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m3 <- lmer(f0sdz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Diapix")))
+summary(m4 <- lmer(f0sdz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Diapix")))
+
+anova(m, m1)
+anova(m, m2)
+anova(m, m3)
+anova(m, m4)
+```
+
 # Local convergence
 
 (following Levitan & Hirschberg 2011's method)

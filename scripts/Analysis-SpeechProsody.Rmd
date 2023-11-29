@@ -44,27 +44,7 @@ meta <- m
 
 #### f0 median
 
--   Only during question lists: f0 median doesn't change in any condition.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |> 
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0medz ~ turnOverall + (turnOverall||speaker), ipus |> filter(task=="Lists"))) # the model doesn't converge with random intercepts AND slopes
-summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
+Effect not significant
 
 #### f0 max
 
@@ -107,6 +87,86 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
   ggtitle("Question lists (1st part of experiment)")
 summary(m <- lmer(f0sdz ~ turnOverall + (turnOverall||speaker), ipus |> filter(task=="Lists"))) # the model doesn't converge with random intercepts AND slopes
 summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+### Without domino task
+
+```{r, include=FALSE}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+ipus <- merge(ipus, 
+              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
+              by = "dyad", all=TRUE) |> 
+  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
+  mutate(delete = ifelse(
+    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
+    "del",
+    "keep"
+  )) |>
+  filter(delete == "keep") |> 
+  select(-delete) |> 
+  group_by(speaker) |> 
+  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup()
+```
+
+#### f0 median
+
+-   Only during question lists: f0 median doesn't change in any condition.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+#### f0 max
+
+-   Only during question lists: f0 max doesn't change in either condition.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+#### f0 SD
+
+-   Only during question lists: f0 SD decreases in both conditions.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
@@ -622,7 +682,6 @@ tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead")))
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="effect")
-
 summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
 ```
 
@@ -653,8 +712,6 @@ tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 emmeans(m, pairwise~condition, by="effect")
-
-summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
 
 # ONLY NULL FINDINGS
@@ -683,9 +740,7 @@ meta <- m
 
 #### f0 median
 
--   Across entire experiment: f0 median increases in both conditions.
 -   Only during question lists: f0 median doesn't change in any condition.
--   Only during Diapix: f0 median increases in both conditions.
 
 ```{r, include=FALSE}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -708,53 +763,11 @@ plot(fitted(m), resid(m))
 
 #### f0 max
 
--   Across entire experiment: f0 max decreases in both conditions.
--   Only during question lists: f0 max tends to decrease only in the *impersonal* condition, but if we're being strict (AIC of model with `condition` was 1.7 smaller than without), there f0 max went down in both conditions.
--   Only during Diapix: f0 max doesn't change significantly for either group.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |>
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
+Significant effect (in first section above)
 
 #### f0 SD
 
--   Across entire experiment: f0 SD doesn't change in either condition.
--   Only during question lists: f0 SD decreases in both conditions.
--   Only during Diapix: f0 SD doesn't change in either condition.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |>
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
+Significant effect (in first section above)
 
 ### Categorical change (per speaker)
 
