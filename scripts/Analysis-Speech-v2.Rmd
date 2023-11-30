@@ -25,6 +25,7 @@ load(paste0(here::here(), "/data/speechData.RData"))
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
+load(paste0(here::here(), "/data/tempDataChange.RData"))
 meta <- m
 badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG-D", c(1, 2)), paste0("HBR-D", c(1, 2)), paste0("HBR-L", c(1, 2, 3)), paste0("HUJ-D", c(1, 2)), "KPB-D1", paste0("MJG-D", c(1, 2)), paste0("MJG-L", c(1, 2)), "OAL-D1", paste0("OAL-L", c(1, 2, 3)), paste0("OXQ-D", c(1, 2)), paste0("OXQ-L", c(1, 2, 3)), "SGB-D1", paste0("SGB-L", c(1, 2, 3)), paste0("SUK-D", c(1, 2)), "TTN-D1", paste0("TTN-L", c(1, 2, 3)), "TTY-D1", paste0("VDE-D", c(1, 2)), "ZNV-D1")
 ```
@@ -34,25 +35,25 @@ badFiles <- c(paste0("AML-D", c(1, 2)), paste0("FWR-L", c(1, 2, 3)), paste0("HAG
 **f0 change regardless of interlocutor** (per speaker; using categorical values)
 
 * Some participants significantly increased or decreased on different f0 measures to different extents, but there were almost no relationships with other predictors. This is the exception:
-    * First part of the experiment (Lists)
-        * f0 max *decreased less often* when the speaker felt *closer* to their partner.
-        * f0 max *decreased less often* when the speaker *liked* their partner *more* (small effect).
-        * f0 SD tended to *increase more often* when the person scored higher in *neuroticism*.
+* First part of the experiment (Lists)
+* f0 max *decreased less often* when the speaker felt *closer* to their partner.
+* f0 max *decreased less often* when the speaker *liked* their partner *more* (small effect).
+* f0 SD tended to *increase more often* when the person scored higher in *neuroticism*.
 
 **f0 change regardless of interlocutor** (all speakers together; using continuous values)
 
 * First section of the experiment (Lists)
-    * f0 median didn’t change in any condition.
-    * f0 max tended to decrease only in the impersonal condition, but if we’re being strict (AIC of model with condition was 1.7 smaller than without), there f0 max went down in both conditions.
-    * f0 SD decreased in both conditions.
+* f0 median didn’t change in any condition.
+* f0 max tended to decrease only in the impersonal condition, but if we’re being strict (AIC of model with condition was 1.7 smaller than without), there f0 max went down in both conditions.
+* f0 SD decreased in both conditions.
 * Second section of the experiment (Diapix)
-    * f0 median increased in both conditions.
-    * f0 max didn’t change significantly in either condition.
-    * f0 SD didn’t change in either condition.
+* f0 median increased in both conditions.
+* f0 max didn’t change significantly in either condition.
+* f0 SD didn’t change in either condition.
 * Across entire experiment
-    * f0 median increased in both conditions.
-    * f0 max decreased in both conditions.
-    * f0 SD didn’t change in either condition.
+* f0 median increased in both conditions.
+* f0 max decreased in both conditions.
+* f0 SD didn’t change in either condition.
 
 **f0 entrainment**
 
@@ -1565,13 +1566,59 @@ ipus <- merge(ipus,
          f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
          f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
   ungroup()
+
+ipus <- merge(ipus,
+              datChange |> 
+                select(speaker, ROI, tempChangeLists, tempChangeDiapix, tempChangeEntireExp),
+              by="speaker")
 ```
+
+<!-- # ```{r} -->
+<!-- # ggplot(ipus |> filter(task=="Lists"), aes(condition, f0medz))+ -->
+<!-- #   geom_boxplot() -->
+<!-- #  -->
+<!-- # ggplot(ipus |> filter(task=="Lists"), aes(condition, f0sdz))+ -->
+<!-- #   geom_boxplot() -->
+<!-- #  -->
+<!-- # ggplot(ipus |> filter(task=="Lists"), aes(condition, f0max))+ -->
+<!-- #   geom_boxplot() -->
+<!-- # ``` -->
+<!-- #  -->
+<!-- # ```{r} -->
+<!-- # dat <- ipus |>  -->
+<!-- #   group_by(speaker) |>  -->
+<!-- #   filter(task=="Lists") |>  -->
+<!-- #   filter(turnOverall == 1:(length(turnOverall))*0.1 | (length(turnOverall))*0.9:(length(turnOverall))) -->
+<!-- #  -->
+<!-- # ggplot(dat, aes(x=turnOverall, y=f0max))+ -->
+<!-- #   geom_point()+ -->
+<!-- #   facet_wrap(~condition)+ -->
+<!-- #   geom_smooth(method="lm") -->
+<!-- #  -->
+<!-- # ggplot(dat, aes(x=turnOverall, y=f0med))+ -->
+<!-- #   geom_point()+ -->
+<!-- #   facet_wrap(~condition)+ -->
+<!-- #   geom_smooth(method="lm") -->
+<!-- #  -->
+<!-- # ggplot(dat, aes(x=turnOverall, y=f0sd))+ -->
+<!-- #   geom_point()+ -->
+<!-- #   facet_wrap(~condition)+ -->
+<!-- #   geom_smooth(method="lm") -->
+<!-- # ``` -->
+
+
+<!-- ```{r} -->
+<!-- summary(lmer(f0medz ~ condition + (1|speaker), ipus |> filter(task=="Lists"))) -->
+<!-- summary(lmer(f0sdz ~ condition + (1|speaker), ipus |> filter(task=="Lists"))) -->
+<!-- summary(lmer(f0maxz ~ condition + (1|speaker), ipus |> filter(task=="Lists"))) -->
+<!-- ``` -->
+
 
 #### f0 median
 
 -   Across entire experiment: f0 median increases in both conditions.
 -   Only during question lists: f0 median doesn't change in any condition.
--   Only during Diapix: f0 median increases in both conditions.
+-   Only during Diapix: f0 median increases in both conditions (the model suggests there's a difference between conditions but it doesn't seem true).
 
 ```{r}
 ggplot(ipus, aes(turnOverall, f0medz))+
@@ -1593,6 +1640,7 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
+# ggsave(paste0(here::here(), "/figures/forMeeting/medianCondition.png"))
 summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
 summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
@@ -1668,8 +1716,8 @@ ggplot(ipus, aes(turnOverall, f0maxz))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Entire experiment")
-summary(m <- lm(f0maxz ~ turnOverall, ipus))
-summary(m1 <- lm(f0maxz ~ turnOverall : condition, ipus))
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -1682,6 +1730,7 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
+# ggsave(paste0(here::here(), "/figures/forMeeting/maxCondition.png"))
 summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
 summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
@@ -1749,7 +1798,7 @@ anova(m, m4)
 #### f0 SD
 
 -   Across entire experiment: f0 SD doesn't change in either condition.
--   Only during question lists: f0 SD decreases in both conditions.
+-   Only during question lists: f0 SD decreases only in close condition.
 -   Only during Diapix: f0 SD doesn't change in either condition.
 
 ```{r}
@@ -1772,13 +1821,14 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
+# ggsave(paste0(here::here(), "/figures/forMeeting/sdCondition.png"))
 summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
 summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
 ```
 ```{r}
 ggplot(ipus |> filter(task=="Diapix"), aes(turnOverall, f0sdz))+
@@ -1812,10 +1862,10 @@ anova(m, m4)
 
 # lists
 summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0sdz ~ turnOverall : closeness + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m2 <- lmer(f0sdz ~ turnOverall : similarity + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m3 <- lmer(f0sdz ~ turnOverall : likeability + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m4 <- lmer(f0sdz ~ turnOverall : becomeFriends + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnOverall * closeness + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m2 <- lmer(f0sdz ~ turnOverall * similarity + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m3 <- lmer(f0sdz ~ turnOverall * likeability + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m4 <- lmer(f0sdz ~ turnOverall * becomeFriends + (1|speaker), ipus |> filter(task=="Lists")))
 
 anova(m, m1)
 anova(m, m2)
@@ -1833,6 +1883,86 @@ anova(m, m1)
 anova(m, m2)
 anova(m, m3)
 anova(m, m4)
+```
+
+### Temperature (numerical) affecting f0
+
+```{r}
+tos <- data.frame(matrix(nrow=0, ncol=5))
+names(tos) <- c("f0feature", "ROI", "section", "direction", "temperatureAffectsF0")
+
+for(r in unique(ipus$ROI)){
+  # f0 median
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0median", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0median", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0median", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  
+  # f0 max
+  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0max", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0max", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0max", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  
+  # f0 SD
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0sd", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0sd", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0sd", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"))
+  
+  
+}
+
+print("These are the significant effects of temperature on f0 (per ROI and f0 feature):")
+print(tos |> filter(temperatureAffectsF0=="affects") |> arrange(section))
 ```
 
 # Local convergence

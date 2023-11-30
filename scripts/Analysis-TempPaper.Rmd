@@ -81,7 +81,7 @@ ggplot(all, aes(ROI, fill=effect))+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-### First part of experiment
+## First part of experiment
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -92,13 +92,23 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-#### Nose
+### Nose
+
+```{r}
+# ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+#   geom_bar()+
+#   ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+#   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+# ggsave(paste0(here::here(), "/figures/forMeeting/foreheadConditionLists.png"))
+```
+
 
 
 People *increased* their temperature *more often* when they wanted more to *become friends* with their partner. When performing pairwise comparison and adjusting the p value, it became a little over .05 (i.e. .055)
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
   geom_boxplot()
+ggsave(paste0(here::here(), "/figures/forMeeting/noseFriendsLists.png"))
 ```
 
 ```{r}
@@ -107,15 +117,15 @@ tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Nose")))
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Eyes
+### Eyes
 
 No significant effects
 
-##### Forehead
+### Forehead
 
 No significant effects
 
-##### Cheeks
+### Cheeks
 
 Cheek temperature *increased less often* when the speaker scored higher in *agreeableness*. BUT pairwise comparison not running.
 ```{r}
@@ -129,7 +139,7 @@ tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Second part of experiment (Diapix)
+## Second part of experiment (Diapix)
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -140,7 +150,7 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-##### Nose
+### Nose
 
 People *decrease* their temperature *more often* when they wanted more to *become friends* with their partner.
 ```{r}
@@ -178,7 +188,7 @@ tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Nose"))) |>
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Eyes
+### Eyes
 
 Eye temperature *increased less often* when the speaker felt *closer* to their partner.
 ```{r}
@@ -204,7 +214,7 @@ tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Eyes")))
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Forehead
+### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
@@ -259,7 +269,7 @@ tidy(m <- nnet::multinom(effect ~ openness, data=d |> filter(ROI=="Forehead"))) 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Cheeks
+### Cheeks
 
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
@@ -290,7 +300,7 @@ tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Entire experiment
+## Entire experiment
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -301,11 +311,11 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-##### Nose
+### Nose
 
 No significant effects
 
-##### Eyes
+### Eyes
 
 Eye temperature seemed to *increase less often* when the speaker scored higher on neuroticism.
 ```{r}
@@ -319,11 +329,11 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Forehead
+### Forehead
 
 No significant effects
 
-##### Cheeks
+### Cheeks
 
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
@@ -354,13 +364,13 @@ tidy(m <- nnet::multinom(effect ~ agreeableness, data=d |> filter(ROI=="Cheeks")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-## Numerical (temperature difference, all participants together)
+# Numerical (temperature difference, all participants together)
 
 All the effects below are small and with the residuals not normally distributed. This is probably due to the small size of the data set. So these effects aren't the most reliable.
 
-#### First part of experiment (Lists)
+## First part of experiment (Lists)
 
-##### Nose
+### Nose
 
 Nose's temperature change was *less positive* when the person scored higher on extraversion.
 ```{r}
@@ -378,11 +388,11 @@ qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
 ```
 
-##### Eyes
+### Eyes
 
 No significant effects
 
-##### Forehead
+### Forehead
 
 People changed their forehead temperature *more positively* when they scored *higher* in *agreeableness*.
 ```{r}
@@ -401,21 +411,21 @@ plot(fitted(m), resid(m))
 ```
 
 
-##### Cheeks
+### Cheeks
 
 No significant effects
 
-#### Second part of experiment (Diapix)
+## Second part of experiment (Diapix)
 
-##### Nose
-
-No significant effects
-
-##### Eyes
+### Nose
 
 No significant effects
 
-##### Forehead
+### Eyes
+
+No significant effects
+
+### Forehead
 
 Forehead temperature change was *less positive* when the speaker scored higher on *likeability*.
 ```{r}
@@ -450,7 +460,7 @@ plot(fitted(m), resid(m))
 ```
 
 
-##### Cheeks
+### Cheeks
 
 Cheek temperature change was *less positive* when the speaker scored higher on *agreeableness*.
 ```{r}
@@ -468,9 +478,9 @@ qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
 ```
 
-#### Entire Experiment
+## Entire Experiment
 
-##### Nose
+### Nose
 
 Nose temperature change was *less positive* when the person scored higher on extraversion.
 ```{r}
@@ -489,11 +499,11 @@ qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
 ```
 
-##### Eyes
+### Eyes
 
 No significant effects
 
-##### Forehead
+### Forehead
 
 It seems that people that *liked* their partner more changed forehead temperature *less positively*.
 ```{r}
@@ -528,7 +538,7 @@ plot(fitted(m), resid(m))
 ```
 
 
-##### Cheeks
+### Cheeks
 
 Cheeks changed temperature *less positively* when the speaker liked their partner *more*.
 ```{r}
@@ -547,8 +557,6 @@ plot(fitted(m), resid(m))
 ```
 
 # Thermal comfort / Temperature perception
-
-### Thermal Comfort
 
 People found the room warmer after the interaction in the Close condition (p = 0.02, already accounting for the room temperature). Before the interaction, there was no condition difference, and the only significant predictor of thermal comfort/perception was the real room temperature.
 
@@ -635,7 +643,7 @@ ggplot(all, aes(ROI, fill=effect))+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
-### First part of experiment
+## First part of experiment
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -646,7 +654,7 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-#### Nose
+### Nose
 
 No effect of condition
 ```{r}
@@ -696,7 +704,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Eyes
+### Eyes
 
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
@@ -757,7 +765,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Forehead
+### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
@@ -818,7 +826,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Cheeks
+### Cheeks
 
 ```{r}
 ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
@@ -875,7 +883,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks")))
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Second part of experiment (Diapix)
+## Second part of experiment (Diapix)
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -886,7 +894,7 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-##### Nose
+### Nose
 
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
@@ -935,7 +943,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Eyes
+### Eyes
 
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
@@ -988,7 +996,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Eyes"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Forehead
+### Forehead
 
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Forehead"))) |> 
@@ -1019,7 +1027,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Cheeks
+### Cheeks
 
 
 No effect of the perception of their partner.
@@ -1059,7 +1067,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks")))
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-#### Entire experiment
+## Entire experiment
 
 ```{r, include=FALSE}
 d <- merge(all |> 
@@ -1070,7 +1078,7 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-##### Nose
+### Nose
 
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
@@ -1131,7 +1139,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Nose"))) |
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Eyes
+### Eyes
 
 ```{r}
 ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
@@ -1189,7 +1197,7 @@ tidy(m <- nnet::multinom(effect ~ conscientiousness, data=d |> filter(ROI=="Eyes
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Forehead
+### Forehead
 
 ```{r}
 ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
@@ -1250,7 +1258,7 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Forehead")
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-##### Cheeks
+### Cheeks
 
 No effect of the perception of their partner.
 ```{r}
@@ -1289,13 +1297,13 @@ tidy(m <- nnet::multinom(effect ~ neuroticism, data=d |> filter(ROI=="Cheeks")))
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
 ```
 
-## Numerical (temperature difference, all participants together)
+# Numerical (temperature difference, all participants together)
 
 All the effects below are small and with the residuals not normally distributed. This is probably due to the small size of the data set. So these effects aren't the most reliable.
 
-#### First part of experiment (Lists)
+## First part of experiment (Lists)
 
-##### Nose
+### Nose
 
 No condition effect.
 ```{r}
@@ -1317,7 +1325,7 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-##### Eyes
+### Eyes
 
 No condition effect.
 ```{r}
@@ -1341,7 +1349,7 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
 ```
 
-##### Forehead
+### Forehead
 
 No effect of condition.
 ```{r}
@@ -1364,7 +1372,7 @@ summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI==
 ```
 
 
-##### Cheeks
+### Cheeks
 
 No effect of condition.
 ```{r}
@@ -1388,9 +1396,9 @@ summary(lmer(tempChangeLists ~ conscientiousness + (1|dyad), datChange |> filter
 summary(lmer(tempChangeLists ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
-#### Second part of experiment (Diapix)
+## Second part of experiment (Diapix)
 
-##### Nose
+### Nose
 
 No condition effect.
 ```{r}
@@ -1414,7 +1422,7 @@ summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filte
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-##### Eyes
+### Eyes
 
 No condition effect.
 ```{r}
@@ -1438,7 +1446,7 @@ summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filte
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
 ```
 
-##### Forehead
+### Forehead
 
 No effect of condition.
 ```{r}
@@ -1459,7 +1467,7 @@ summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=
 ```
 
 
-##### Cheeks
+### Cheeks
 
 No effect of condition.
 ```{r}
@@ -1481,9 +1489,9 @@ summary(lmer(tempChangeDiapix ~ conscientiousness + (1|dyad), datChange |> filte
 summary(lmer(tempChangeDiapix ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Cheeks")))
 ```
 
-#### Entire Experiment
+## Entire Experiment
 
-##### Nose
+### Nose
 
 No condition effect.
 ```{r}
@@ -1505,7 +1513,7 @@ summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> fi
 summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Nose")))
 ```
 
-##### Eyes
+### Eyes
 
 No condition effect.
 ```{r}
@@ -1529,7 +1537,7 @@ summary(lmer(tempChangeEntireExp ~ conscientiousness + (1|dyad), datChange |> fi
 summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(ROI=="Eyes")))
 ```
 
-##### Forehead
+### Forehead
 
 No effect of condition.
 ```{r}
@@ -1550,7 +1558,7 @@ summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(R
 ```
 
 
-##### Cheeks
+### Cheeks
 
 No effect of condition.
 ```{r}
@@ -1573,8 +1581,6 @@ summary(lmer(tempChangeEntireExp ~ neuroticism + (1|dyad), datChange |> filter(R
 ```
 
 # Thermal comfort / Temperature perception
-
-### Thermal Comfort
 
 People found the room warmer after the interaction in the Close condition (p = 0.02, already accounting for the room temperature). Before the interaction, there was no condition difference, and the only significant predictor of thermal comfort/perception was the real room temperature.
 

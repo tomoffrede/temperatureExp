@@ -35,6 +35,7 @@ load(paste0(here::here(), "/data/speechData.RData"))
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
+load(paste0(here::here(), "/data/tempDataChange.RData"))
 meta <- m
 ```
 
@@ -114,6 +115,10 @@ ipus <- merge(ipus,
          f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
          f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
   ungroup()
+ipus <- merge(ipus,
+              datChange |> 
+                select(speaker, ROI, tempChangeLists, tempChangeDiapix, tempChangeEntireExp),
+              by="speaker")
 ```
 
 #### f0 median
@@ -156,7 +161,7 @@ plot(fitted(m), resid(m))
 
 #### f0 SD
 
--   Only during question lists: f0 SD decreases in both conditions.
+-   Only during question lists: f0 SD decreases only in close condition.
 
 ```{r}
 ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
@@ -171,6 +176,95 @@ par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
+```
+
+#### Temperature effects on f0
+
+```{r include=FALSE}
+tos <- data.frame(matrix(nrow=0, ncol=7))
+names(tos) <- c("f0feature", "ROI", "section", "direction", "temperatureAffectsF0", "estimate", "p")
+
+for(r in unique(ipus$ROI)){
+  # f0 median
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0median", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0median", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0median", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  
+  # f0 max
+  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0max", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0max", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0max", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  
+  # f0 SD
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0sd", r, "entireExp",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
+    c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    a <- anova(m, m1)
+    tos[nrow(tos)+1,] <- c("f0sd", r, "Lists",
+                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+  }
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  a <- anova(m, m1)
+  tos[nrow(tos)+1,] <- c("f0sd", r, "Diapix",
+                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
+                         c1$estimate[4], c1$p.value[4])
+}
+```
+
+These are the temperature effects on f0, per ROI, f0 feature, and experimental section:
+```{r echo=FALSE}
+print(tos |> filter(temperatureAffectsF0=="affects") |> arrange(ROI))
 ```
 
 ### Categorical change (per speaker)
@@ -509,7 +603,7 @@ all <- all |>
   rename(entrain=real) |> 
   arrange(sectionN) |> 
   select(-sectionN)
-print(all |> filter(entrain=="yes"))
+print(all |> filter(entrain=="yes") |> select(speaker, direction, coefficient, condition, feature, section))
 ```
 
 # TEMPERATURE ANALYSIS
@@ -768,6 +862,75 @@ Significant effect (in first section above)
 #### f0 SD
 
 Significant effect (in first section above)
+
+### Without domino task
+
+```{r, include=FALSE}
+load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+ipus <- merge(ipus, 
+              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
+              by = "dyad", all=TRUE) |> 
+  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
+  mutate(delete = ifelse(
+    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
+    "del",
+    "keep"
+  )) |>
+  filter(delete == "keep") |> 
+  select(-delete) |> 
+  group_by(speaker) |> 
+  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup()
+```
+
+#### f0 median
+
+-   Only during question lists: f0 median doesn't change in any condition.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+#### f0 max
+
+-   Only during question lists: f0 max doesn't change in either condition.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+#### f0 SD
+
+Significant effect
+
+#### Temperature effects on f0
+
+No effects of temperature on f0 during "Lists"
 
 ### Categorical change (per speaker)
 
