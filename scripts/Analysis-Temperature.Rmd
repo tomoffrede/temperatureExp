@@ -693,7 +693,7 @@ emmeans(m, pairwise~condition, by="effect")
 summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
 ```
 
-People *decrease* their temperature *more often* when they wanted more to *become friends* with their partner.
+People *decrease* their temperature *less often* when they wanted more to *become friends* with their partner.
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
   geom_boxplot()

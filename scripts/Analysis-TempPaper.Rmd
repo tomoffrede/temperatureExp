@@ -152,7 +152,7 @@ d <- merge(all |>
 
 ### Nose
 
-People *decrease* their temperature *more often* when they wanted more to *become friends* with their partner.
+People *decrease* their temperature *less often* when they wanted more to *become friends* with their partner.
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
   geom_boxplot()

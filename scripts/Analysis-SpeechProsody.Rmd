@@ -210,31 +210,6 @@ for(r in unique(ipus$ROI)){
                          ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
                          c1$estimate[4], c1$p.value[4])
   
-  # f0 max
-  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
-  a <- anova(m, m1)
-  tos[nrow(tos)+1,] <- c("f0max", r, "entireExp",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
-  if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
-    c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
-    c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
-    a <- anova(m, m1)
-    tos[nrow(tos)+1,] <- c("f0max", r, "Lists",
-                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
-  }
-  c <- broom.mixed::tidy(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0maxz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
-  a <- anova(m, m1)
-  tos[nrow(tos)+1,] <- c("f0max", r, "Diapix",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
-  
   # f0 SD
   c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
   c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
@@ -260,6 +235,12 @@ for(r in unique(ipus$ROI)){
                          ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
                          c1$estimate[4], c1$p.value[4])
 }
+
+tos <- tos |> 
+  mutate_at(c("f0feature", "ROI", "section", "direction", "temperatureAffectsF0"), as.factor) |> 
+  mutate_at(c("estimate", "p"), as.numeric) |> 
+  mutate(correctedP = p * nrow(tos),
+         temperatureAffectsF0 = ifelse(correctedP < 0.05, "affects", "doesnt"))
 ```
 
 These are the temperature effects on f0, per ROI, f0 feature, and experimental section:
