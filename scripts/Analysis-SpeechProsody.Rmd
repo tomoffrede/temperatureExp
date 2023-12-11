@@ -37,64 +37,23 @@ load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/tempDataChange.RData"))
 meta <- m
+
+# set theme for figures
+theme_set(theme_minimal()+
+            theme(panel.grid.minor = element_blank(),
+                  panel.grid.major = element_blank(),
+                  axis.title = element_text(size=16),
+                  axis.text.x = element_text(size=12),
+                  strip.text = element_text(size = 16),
+                  plot.title = element_text(size=20, hjust=0.5),
+                  legend.title = element_text(size=16),
+                  legend.text = element_text(size=12)))
 ```
 
 ## Speech adaptation (regardless of interlocutor)
 
-### Numerical measure (all speakers together)
+### Numerical measure (all speakers together; without Domino task)
 
-#### f0 median
-
-Effect not significant
-
-#### f0 max
-
--   Only during question lists: f0 max tends to decrease only in the *impersonal* condition, but if we're being strict (AIC of model with `condition` was 1.7 smaller than without), there f0 max went down in both conditions.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |>
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists"))) # the model doesn't converge with random slopes, even after deleting the random intercepts
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
-
-#### f0 SD
-
--   Only during question lists: f0 SD decreases in both conditions.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |>
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0sdz ~ turnOverall + (turnOverall||speaker), ipus |> filter(task=="Lists"))) # the model doesn't converge with random intercepts AND slopes
-summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
-
-### Without domino task
 
 ```{r, include=FALSE}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -126,32 +85,13 @@ ipus <- merge(ipus,
 -   Only during question lists: f0 median doesn't change in any condition.
 
 ```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
+ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0medz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
-anova(m, m1)
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
-
-#### f0 max
-
--   Only during question lists: f0 max doesn't change in either condition.
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m <- lmer(f0medz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
@@ -164,18 +104,25 @@ plot(fitted(m), resid(m))
 -   Only during question lists: f0 SD decreases only in close condition.
 
 ```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
+ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0sdz))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0sdz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m <- lmer(f0sdz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnNormalTask : condition + (1|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
+
+# figure for paper
+ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  labs(y="f0 SD (z-scored)", x="Time", title="")
 ```
 
 #### Temperature effects on f0
@@ -248,150 +195,7 @@ These are the temperature effects on f0, per ROI, f0 feature, and experimental s
 print(tos |> filter(temperatureAffectsF0=="affects") |> arrange(ROI))
 ```
 
-### Categorical change (per speaker)
 
-```{r, include=FALSE}
-ind <- data.frame(matrix(nrow=0, ncol=6))
-names(ind) <- c("speaker", "condition", "feature", "section", "t", "p")
-
-for(s in unique(ipus$speaker)){
-  # f0 median
-  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0medz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-  
-  # f0 max
-  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0maxz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-  
-  # f0 SD
-  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0sdz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-}
-
-dat <- merge(ind |> 
-               mutate_at(c("t", "p"), as.numeric) |> 
-               mutate(change = case_when(
-                 p < 0.05 & t < 0 ~ "decrease",
-                 p < 0.05 & t > 0 ~ "increase",
-                 p > 0.05 ~ "ns"
-               )),
-             ipus |> select(speaker, gender, comfortPre, comfortPost, closeness, similarity, likeability, becomeFriends, extraversion, openness, agreeableness, conscientiousness, neuroticism) |> filter(!duplicated(speaker)),
-             by = "speaker") |> 
-  mutate_at(c("speaker", "condition", "feature", "section", "change", "gender"), as.factor)
-
-dat$change <- relevel(dat$change, ref="ns")
-
-# join individual temperature change effects
-indTemp <- indTemp |> 
-  mutate(effect = case_when(
-    effect == "ns" ~ "tempNS",
-    effect == "increase" ~ "tempIncrease",
-    effect == "decrease" ~ "tempDecrease",
-  ))
-
-s <- dat |> 
-  mutate(change = case_when(
-    change == "ns" ~ "f0NS",
-    change == "increase" ~ "f0Increase",
-    change == "decrease" ~ "f0Decrease",
-  ))
-
-t1 <- indTemp |> 
-  filter(section=="entireExp") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "entireExp")
-
-t2 <- indTemp |> 
-  filter(section=="Lists") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "Lists")
-
-t3 <- indTemp |> 
-  filter(section=="Diapix") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "Diapix")
-# mutate(section = "Lists") # naming the Diapix section and "Lists" to pair these values with the f0 adaptation during "Lists", since temperature change takes a while to happen
-# this didn't bring about any new insights
-
-t <- rbind(t1, rbind(t2, t3))
-# t <- rbind(t1, t3)
-
-ts <- merge(t,
-            s |> 
-              select(-condition),
-            by=c("speaker", "section"), all=TRUE) |> 
-  mutate_at(c("speaker", "section", "Forehead", "Eyes", "Nose", "Cheeks", "feature", "change", "gender"), as.factor)
-
-ts$Forehead <- relevel(ts$Forehead, ref="tempNS")
-ts$Cheeks <- relevel(ts$Cheeks, ref="tempNS")
-ts$Eyes <- relevel(ts$Eyes, ref="tempNS")
-ts$Nose <- relevel(ts$Nose, ref="tempNS")
-ts$change <- relevel(ts$change, ref="f0NS")
-```
-
-#### f0 median
-
-No significant effects
-
-#### f0 max
-
-f0 max decreased *less* when the speaker felt *closer* to their partner.
-```{r}
-ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, closeness))+
-  geom_boxplot()
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-f0 max also decreased *less* (smaller effect) when the speaker *liked* their partner *more*.
-```{r}
-ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(change, likeability))+
-  geom_boxplot()
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-#### f0 SD
-
-No significant effects
 
 ## Convergence
 (following Levitan & Hirschberg 2011's method)
@@ -811,40 +615,7 @@ meta <- m
 
 ## Speech adaptation (regardless of interlocutor)
 
-### Numerical measure (all speakers together)
-
-#### f0 median
-
--   Only during question lists: f0 median doesn't change in any condition.
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-# ipus <- ipus |> 
-#   filter(gender != "Male")
-```
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
-
-#### f0 max
-
-Significant effect (in first section above)
-
-#### f0 SD
-
-Significant effect (in first section above)
-
-### Without domino task
+### Numerical measure (all speakers together; without Domino task)
 
 ```{r, include=FALSE}
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
@@ -886,25 +657,6 @@ qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
 ```
 
-#### f0 max
-
--   Only during question lists: f0 max doesn't change in either condition.
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0maxz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0maxz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0maxz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
-anova(m, m1)
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
-
 #### f0 SD
 
 Significant effect
@@ -913,400 +665,6 @@ Significant effect
 
 No effects of temperature on f0 during "Lists"
 
-### Categorical change (per speaker)
-
-```{r, include=FALSE}
-ind <- data.frame(matrix(nrow=0, ncol=6))
-names(ind) <- c("speaker", "condition", "feature", "section", "t", "p")
-
-for(s in unique(ipus$speaker)){
-  # f0 median
-  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0medz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0medz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0median", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-  
-  # f0 max
-  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0maxz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0maxz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0max", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-  
-  # f0 SD
-  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s)))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "entireExp",
-                         c$statistic[2], c$p.value[2])
-  c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Lists")))
-  ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Lists",
-                         c$statistic[2], c$p.value[2])
-  if(!all(is.na(ipus$f0sdz[ipus$speaker==s & ipus$task=="Diapix"]))){ # need to do this because there are missing files for one dyad for this section
-    c <- tidy(lm(f0sdz ~ turnOverall, ipus |> filter(speaker==s, task=="Diapix")))
-    ind[nrow(ind)+1,] <- c(s, unique(ipus$condition[ipus$speaker==s]), "f0SD", "Diapix",
-                           c$statistic[2], c$p.value[2])
-  }
-}
-
-dat <- merge(ind |> 
-               mutate_at(c("t", "p"), as.numeric) |> 
-               mutate(change = case_when(
-                 p < 0.05 & t < 0 ~ "decrease",
-                 p < 0.05 & t > 0 ~ "increase",
-                 p > 0.05 ~ "ns"
-               )),
-             ipus |> select(speaker, gender, comfortPre, comfortPost, closeness, similarity, likeability, becomeFriends, extraversion, openness, agreeableness, conscientiousness, neuroticism) |> filter(!duplicated(speaker)),
-             by = "speaker") |> 
-  mutate_at(c("speaker", "condition", "feature", "section", "change", "gender"), as.factor)
-
-dat$change <- relevel(dat$change, ref="ns")
-
-# join individual temperature change effects
-indTemp <- indTemp |> 
-  mutate(effect = case_when(
-    effect == "ns" ~ "tempNS",
-    effect == "increase" ~ "tempIncrease",
-    effect == "decrease" ~ "tempDecrease",
-  ))
-
-s <- dat |> 
-  mutate(change = case_when(
-    change == "ns" ~ "f0NS",
-    change == "increase" ~ "f0Increase",
-    change == "decrease" ~ "f0Decrease",
-  ))
-
-t1 <- indTemp |> 
-  filter(section=="entireExp") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "entireExp")
-
-t2 <- indTemp |> 
-  filter(section=="Lists") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "Lists")
-
-t3 <- indTemp |> 
-  filter(section=="Diapix") |> 
-  group_by(speaker) |>
-  pivot_wider(names_from = ROI, values_from = effect, id_cols=speaker) |> 
-  mutate(section = "Diapix")
-# mutate(section = "Lists") # naming the Diapix section and "Lists" to pair these values with the f0 adaptation during "Lists", since temperature change takes a while to happen
-# this didn't bring about any new insights
-
-t <- rbind(t1, rbind(t2, t3))
-# t <- rbind(t1, t3)
-
-ts <- merge(t,
-            s |> 
-              select(-condition),
-            by=c("speaker", "section"), all=TRUE) |> 
-  mutate_at(c("speaker", "section", "Forehead", "Eyes", "Nose", "Cheeks", "feature", "change", "gender"), as.factor)
-
-ts$Forehead <- relevel(ts$Forehead, ref="tempNS")
-ts$Cheeks <- relevel(ts$Cheeks, ref="tempNS")
-ts$Eyes <- relevel(ts$Eyes, ref="tempNS")
-ts$Nose <- relevel(ts$Nose, ref="tempNS")
-ts$change <- relevel(ts$change, ref="f0NS")
-```
-
-#### f0 median
-
-No effect of condition
-
-```{r}
-ggplot(dat |> filter(feature=="f0median", section=="Lists"), aes(condition, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
-  ggtitle("f0 median (first part of exp - Lists)")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="change")
-```
-
-No effect of perception of partner
-```{r}
-tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0median", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-No effect of forehead temperature change on f0 median change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Forehead)), aes(Forehead, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Forehead temp. change and f0 median change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Forehead)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Forehead, by="change")
-```
-
-No effect of nose temperature change on f0 median change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Nose)), aes(Nose, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Nose temp. change and f0 median change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Nose)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Nose, by="change")
-```
-
-No effect of eye temperature change on f0 median change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0median", !is.na(Eyes)), aes(Eyes, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Eye temp. change and f0 median change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Eyes)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
-```
-
-No effect of cheek temperature change on f0 median change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0median", , !is.na(Cheeks)), aes(Cheeks, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Cheek temp. change and f0 median change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0median", section=="Lists", !is.na(Cheeks)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Cheeks, by="change")
-```
-
-#### f0 max
-
-No effect of condition
-
-```{r}
-ggplot(dat |> filter(feature=="f0max", section=="Lists"), aes(condition, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
-  ggtitle("f0 max (first part of exp - Lists)")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="change")
-```
-
-The null effects of perception of partner 
-```{r}
-tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0max", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-No effect of forehead temperature change on f0 max change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Forehead)), aes(Forehead, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Forehead temp. change and f0 max change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Forehead)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Forehead, by="change")
-```
-
-No effect of nose temperature change on f0 max change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Nose)), aes(Nose, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Nose temp. change and f0 max change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Nose)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Nose, by="change")
-```
-
-No effect of eye temperature change on f0 max change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Eyes)), aes(Eyes, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Eye temp. change and f0 max change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Eyes)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
-```
-
-No effect of cheek temperature change on f0 max change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0max", !is.na(Cheeks)), aes(Cheeks, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Cheek temp. change and f0 max change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0max", section=="Lists", !is.na(Cheeks)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Cheeks, by="change")
-```
-
-#### f0 SD
-
-No effect of condition
-
-```{r}
-ggplot(dat |> filter(feature=="f0SD", section=="Lists"), aes(condition, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))+
-  ggtitle("f0 SD (first part of exp - Lists)")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ condition, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="change")
-```
-
-No effect of perception of partner
-```{r}
-tidy(m <- nnet::multinom(change ~ closeness, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ similarity, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ likeability, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-
-tidy(m <- nnet::multinom(change ~ becomeFriends, data=dat |> filter(feature=="f0SD", section=="Lists"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-No effect of forehead temperature change on f0 SD change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Forehead)), aes(Forehead, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Forehead temp. change and f0 SD change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Forehead, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Forehead)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Forehead, by="change")
-```
-
-No effect of nose temperature change on f0 SD change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Nose)), aes(Nose, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Nose temp. change and f0 SD change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Nose, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Nose)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Nose, by="change")
-```
-
-No effect of eye temperature change on f0 SD change
-(The model actually suggests that f0 SD decreased more when the temperature also decreased. But there are so few data points of `temperature decrease` that I don't think this is robust or meaningful.)
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Eyes)), aes(Eyes, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Eye temp. change and f0 SD change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Eyes, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Eyes)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Eyes, by="change") # isn't working (I'm thinking maybe because "eyes" have lots of missing values)
-```
-
-No effect of cheek temperature change on f0 SD change
-```{r}
-ggplot(ts |> filter(section=="Lists", feature=="f0SD", !is.na(Cheeks)), aes(Cheeks, fill=change))+
-  geom_bar()+
-  scale_fill_manual(values = c("f0Decrease" = "lightblue", "f0Increase" = "red", "f0NS" = "gray"))+
-  ggtitle("Cheek temp. change and f0 SD change")
-```
-
-```{r}
-tidy(m <- nnet::multinom(change ~ Cheeks, data=ts |> filter(feature=="f0SD", section=="Lists", !is.na(Cheeks)))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-emmeans(m, pairwise~Cheeks, by="change")
-```
 
 
 ## Convergence

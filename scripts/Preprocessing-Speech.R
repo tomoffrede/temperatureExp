@@ -234,21 +234,21 @@ for(i in 1:nrow(dat)){
     
     # and get f0 values from that IPU
     prevf0mean <- dat$f0meanzGender[dat$file == dat$file[i] &
-                                dat$speaker != dat$speaker[i] &
-                                dat$turn == dat$prevTurn[i] &
-                                dat$IPU == prevLastIPU]
+                                      dat$speaker != dat$speaker[i] &
+                                      dat$turn == dat$prevTurn[i] &
+                                      dat$IPU == prevLastIPU]
     prevf0med <- dat$f0medzGender[dat$file == dat$file[i] &
-                              dat$speaker != dat$speaker[i] &
-                              dat$turn == dat$prevTurn[i] &
-                              dat$IPU == prevLastIPU]
+                                    dat$speaker != dat$speaker[i] &
+                                    dat$turn == dat$prevTurn[i] &
+                                    dat$IPU == prevLastIPU]
     prevf0sd <- dat$f0sdzGender[dat$file == dat$file[i] &
-                            dat$speaker != dat$speaker[i] &
-                            dat$turn == dat$prevTurn[i] &
-                            dat$IPU == prevLastIPU]
+                                  dat$speaker != dat$speaker[i] &
+                                  dat$turn == dat$prevTurn[i] &
+                                  dat$IPU == prevLastIPU]
     prevf0max <- dat$f0maxzGender[dat$file == dat$file[i] &
-                              dat$speaker != dat$speaker[i] &
-                              dat$turn == dat$prevTurn[i] &
-                              dat$IPU == prevLastIPU]
+                                    dat$speaker != dat$speaker[i] &
+                                    dat$turn == dat$prevTurn[i] &
+                                    dat$IPU == prevLastIPU]
     
     # get f0 average over all of previous turn
     prevTurnf0mean <- unique(dat$turnf0mean[dat$file == dat$file[i] &
@@ -350,7 +350,9 @@ for(s in unique(dat$speaker)){
   }
 }
 
-dat <- dat |> 
+dat0 <- dat
+
+dat <- dat0 |> 
   filter(IPU == 1) |> 
   group_by(speaker) |> 
   mutate(f0meanDiff = abs(f0meanzGender - prevf0mean),
@@ -375,9 +377,13 @@ dat <- dat |>
          fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
   arrange(orderFile, turn, .by_group = TRUE) |> # if we end up deciding to keep multiple IPUs per turn, we need to find another way to create `turnOverall`, because this only works with one IPU per turn
   mutate(turnOverall = 1:n()) |> 
+  ungroup() |> 
+  mutate(turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
+  group_by(task, speaker) |> 
+  mutate(turnNormalTask = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
   ungroup()
 
-ipus <- dat |> # same as the one above but without filtering out all the 
+ipus <- dat0 |> # same as the one above but keeping all IPUs in each turn
   group_by(speaker) |> 
   mutate(f0meanDiff = abs(f0meanzGender - prevf0mean),
          f0medDiff = abs(f0medzGender - prevf0med),
@@ -399,11 +405,15 @@ ipus <- dat |> # same as the one above but without filtering out all the
            grepl("-D2", file) ~ 5,
          ),
          fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
-  arrange(orderFile, turn, .by_group = TRUE) |> # if we end up deciding to keep multiple IPUs per turn, we need to find another way to create `turnOverall`, because this only works with one IPU per turn
-  mutate(turnOverall = 1:n()) |> 
+  group_by(speaker, task) |> 
+  mutate(turnOverall = row_number() + first(turn) - 1) |> 
+  ungroup() |> 
+  mutate(turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
+  group_by(task, speaker) |> 
+  mutate(turnNormalTask = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
   ungroup()
 
-save(dat, file=paste0(folderData, "speechData-noMetadata.RData"))
+# save(dat, file=paste0(folderData, "speechData-noMetadata.RData"))
 
 ############## f0 extraction complete
 
