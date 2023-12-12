@@ -376,55 +376,100 @@ dat <- dat0 |>
          ),
          fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
   arrange(orderFile, turn, .by_group = TRUE) |> # if we end up deciding to keep multiple IPUs per turn, we need to find another way to create `turnOverall`, because this only works with one IPU per turn
-  mutate(turnOverall = 1:n()) |> 
-  ungroup() |> 
-  mutate(turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
-  group_by(task, speaker) |> 
-  mutate(turnNormalTask = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
-  ungroup()
-
-ipus <- dat0 |> # same as the one above but keeping all IPUs in each turn
-  group_by(speaker) |> 
-  mutate(f0meanDiff = abs(f0meanzGender - prevf0mean),
-         f0medDiff = abs(f0medzGender - prevf0med),
-         f0sdDiff = abs(f0sdzGender - prevf0sd),
-         f0maxDiff = abs(f0maxzGender - prevf0max),
-         # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
-         # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
-         # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
-         # prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
-         # prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
-         # prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
-         # prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
-         # prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)
-         orderFile = case_when(
-           grepl("-L1", file) ~ 1,
-           grepl("-L2", file) ~ 2,
-           grepl("-L3", file) ~ 3,
-           grepl("-D1", file) ~ 4,
-           grepl("-D2", file) ~ 5,
-         ),
-         fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
-  group_by(speaker, task) |> 
-  mutate(turnOverall = row_number() + first(turn) - 1) |> 
-  ungroup() |> 
-  mutate(turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
+  mutate(turnOverall = 1:n(),
+         turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
   group_by(task, speaker) |> 
   mutate(turnNormalTask = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
   ungroup()
 
 # save(dat, file=paste0(folderData, "speechData-noMetadata.RData"))
 
-############## f0 extraction complete
-
 # join metadata
 
 load(paste0(folderData, "metadata-clean.RData"))
 
-dat0 <- dat # in case we want to check it before it gets merged
-
 dat <- merge(dat, m |> select(-gender), by="speaker") # selecting gender out because it's already in the dataset from above
-ipus <- merge(ipus, m |> select(-gender), by="speaker")
+ipus <- merge(dat0, m |> select(-gender), by="speaker")
+
+# delete period referring to word domino task in impersonal condition (we don't want that in our analysis)
+# and then correct turn count
+ipus <- merge(ipus, 
+              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
+              by = "dyad", all=TRUE) |> 
+  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
+  mutate(delete = ifelse(
+    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
+    "del",
+    "keep"
+  )) |>
+  filter(delete == "keep") |> 
+  select(-delete) |> 
+  group_by(speaker) |> 
+  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
+         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
+         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
+         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
+  ungroup() |> 
+  mutate(#f0meanDiff = abs(f0meanzGender - prevf0mean),
+    #        f0medDiff = abs(f0medzGender - prevf0med),
+    #        f0sdDiff = abs(f0sdzGender - prevf0sd),
+    #        f0maxDiff = abs(f0maxzGender - prevf0max),
+    # prevf0meanC = prevf0mean - mean(prevf0mean, na.rm=TRUE), # I don't think we'll end up using these columns (they'd be used for a regression, but we're not doing that anymore)
+    # prevf0medC = prevf0med - mean(prevf0med, na.rm=TRUE), # so I commented them out
+    # prevf0sdC = prevf0sd - mean(prevf0sd, na.rm=TRUE),
+    # prevf0maxC = prevf0max - mean(prevf0max, na.rm=TRUE),
+    # prevTurnf0meanC = prevTurnf0mean - mean(prevTurnf0mean, na.rm=TRUE),
+    # prevTurnf0medC = prevTurnf0med - mean(prevTurnf0med, na.rm=TRUE),
+    # prevTurnf0sdC = prevTurnf0sd - mean(prevTurnf0sd, na.rm=TRUE),
+    # prevTurnf0maxC = prevTurnf0max - mean(prevTurnf0max, na.rm=TRUE)
+    orderFile = case_when(
+      grepl("-L1", file) ~ 1,
+      grepl("-L2", file) ~ 2,
+      grepl("-L3", file) ~ 3,
+      grepl("-D1", file) ~ 4,
+      grepl("-D2", file) ~ 5,
+    ),
+    fileQuality = ifelse(file %in% badFiles, "bad", "good")) |>
+  select(-c(starts_with("mock"), starts_with("prev")))
+
+ipus$orderFile[ipus$dyad=="MJG" & grepl("D1|D2", ipus$file)] <- ipus$orderFile[ipus$dyad=="MJG" & grepl("D1|D2", ipus$file)] - 1
+
+temp <- data.frame(matrix(nrow=0, ncol=(ncol(ipus)+1)))
+names(temp) <- c(names(ipus), "turnOverall")
+
+for(s in unique(ipus$speaker)){
+  t <- ipus |> 
+    filter(speaker == s) |> 
+    mutate(turnOverall=NA,
+           OGturn = turn) |> 
+    arrange(orderFile, turn, IPU)# |> 
+    # select(speaker, file, task, IPU, turn, orderFile, OGturn, turnOverall)
+  # correct the turn count in "L3" files: after the domino task exclusion above, some dyads have a gap in the turn count
+  for(r in 2:nrow(t)){
+    if(grepl("L3", t$file[r])){
+      if(t$turn[r] - t$turn[r-1] > 1){
+        t$turn[r] <- ifelse(t$turn[r] != t$OGturn[r-1],
+                            t$turn[r-1] + 1,
+                            t$turn[r-1])
+      }
+    }
+  }
+  t$OGturn <- NULL
+  for(r in 1:nrow(t)){
+    t$turnOverall[r] <- ifelse(t$orderFile[r] == 1,
+                               t$turn[r],
+                               t$turn[r] + max(t$turnOverall[t$orderFile==(t$orderFile[r]-1)]))
+  }
+  temp <- rbind(temp, t)
+}
+
+# normalize turn count
+ipus <- temp |> 
+  group_by(speaker) |> 
+  mutate(turnNormal = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
+  group_by(task, speaker) |> 
+  mutate(turnNormalTask = (turnOverall - min(turnOverall)) / (max(turnOverall) - min(turnOverall))) |> 
+  ungroup()
 
 save(dat, file=paste0(folderData, "speechData.RData"))
 save(ipus, file=paste0(folderData, "speechData-allIPUs.RData"))

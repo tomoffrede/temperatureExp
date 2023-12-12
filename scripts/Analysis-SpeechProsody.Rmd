@@ -37,52 +37,15 @@ load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/tempDataChange.RData"))
 meta <- m
-
-# set theme for figures
-theme_set(theme_minimal()+
-            theme(panel.grid.minor = element_blank(),
-                  panel.grid.major = element_blank(),
-                  axis.title = element_text(size=16),
-                  axis.text.x = element_text(size=12),
-                  strip.text = element_text(size = 16),
-                  plot.title = element_text(size=20, hjust=0.5),
-                  legend.title = element_text(size=16),
-                  legend.text = element_text(size=12)))
 ```
 
 ## Speech adaptation (regardless of interlocutor)
 
 ### Numerical measure (all speakers together; without Domino task)
 
-
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-ipus <- merge(ipus, 
-              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
-              by = "dyad", all=TRUE) |> 
-  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
-  mutate(delete = ifelse(
-    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
-    "del",
-    "keep"
-  )) |>
-  filter(delete == "keep") |> 
-  select(-delete) |> 
-  group_by(speaker) |> 
-  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
-         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
-         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
-         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
-  ungroup()
-ipus <- merge(ipus,
-              datChange |> 
-                select(speaker, ROI, tempChangeLists, tempChangeDiapix, tempChangeEntireExp),
-              by="speaker")
-```
-
 #### f0 median
 
--   Only during question lists: f0 median doesn't change in any condition.
+-   Only during question lists: f0 median decreases only in the close condition (already with random slopes for turn per participant!)
 
 ```{r}
 ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0medz))+
@@ -94,9 +57,9 @@ summary(m <- lmer(f0medz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> 
 summary(m1 <- lmer(f0medz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
+hist(resid(m1))
+qqnorm(resid(m1));qqline(resid(m1))
+plot(fitted(m1), resid(m1))
 ```
 
 #### f0 SD
@@ -110,77 +73,75 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0sdz))+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
 summary(m <- lmer(f0sdz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0sdz ~ turnNormalTask : condition + (1|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
 anova(m, m1)
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
 plot(fitted(m), resid(m))
-
-# figure for paper
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0sdz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  labs(y="f0 SD (z-scored)", x="Time", title="")
 ```
 
 #### Temperature effects on f0
 
 ```{r include=FALSE}
+ipus <- merge(ipus,
+              datChange |> 
+                select(speaker, ROI, tempChangeLists, tempChangeDiapix, tempChangeEntireExp),
+              by="speaker")
+
 tos <- data.frame(matrix(nrow=0, ncol=7))
 names(tos) <- c("f0feature", "ROI", "section", "direction", "temperatureAffectsF0", "estimate", "p")
 
 for(r in unique(ipus$ROI)){
   # f0 median
-  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnNormal + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnNormal : tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
   a <- anova(m, m1)
   tos[nrow(tos)+1,] <- c("f0median", r, "entireExp",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                         ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
   if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
-    c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
-    c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnNormalTask + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnNormalTask : tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
     a <- anova(m, m1)
     tos[nrow(tos)+1,] <- c("f0median", r, "Lists",
-                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                           ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
   }
-  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c <- broom.mixed::tidy(m <- lmer(f0medz ~ turnNormalTask + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0medz ~ turnNormalTask : tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
   a <- anova(m, m1)
   tos[nrow(tos)+1,] <- c("f0median", r, "Diapix",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                         ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
   
   # f0 SD
-  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnNormal + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnNormal : tempChangeEntireExp + (1|speaker), ipus |> filter(!is.na(tempChangeEntireExp), ROI==r)))
   a <- anova(m, m1)
   tos[nrow(tos)+1,] <- c("f0sd", r, "entireExp",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                         ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
   if(nrow(ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")) > 0){
-    c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
-    c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnNormalTask + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
+    c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnNormalTask : tempChangeLists + (1|speaker), ipus |> filter(!is.na(tempChangeLists), ROI==r, task=="Lists")))
     a <- anova(m, m1)
     tos[nrow(tos)+1,] <- c("f0sd", r, "Lists",
-                           ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                           ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
   }
-  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnOverall + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
-  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnOverall * tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c <- broom.mixed::tidy(m <- lmer(f0sdz ~ turnNormalTask + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
+  c1 <- broom.mixed::tidy(m1 <- lmer(f0sdz ~ turnNormalTask : tempChangeDiapix + (1|speaker), ipus |> filter(!is.na(tempChangeDiapix), ROI==r, task=="Diapix")))
   a <- anova(m, m1)
   tos[nrow(tos)+1,] <- c("f0sd", r, "Diapix",
-                         ifelse(c1$estimate[4] < 0, "negative", "positive"),
-                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[4] < 0.05, "affects", "doesnt"),
-                         c1$estimate[4], c1$p.value[4])
+                         ifelse(c1$estimate[2] < 0, "negative", "positive"),
+                         ifelse(a$AIC[2] - a$AIC[1] <= -2 & c1$p.value[2] < 0.05, "affects", "doesnt"),
+                         c1$estimate[2], c1$p.value[2])
 }
 
 tos <- tos |> 
@@ -190,12 +151,10 @@ tos <- tos |>
          temperatureAffectsF0 = ifelse(correctedP < 0.05, "affects", "doesnt"))
 ```
 
-These are the temperature effects on f0, per ROI, f0 feature, and experimental section:
+Below are the effects of temperature change per ROI on f0 SD change. During *Lists*, changes in eye and forehead temperature predicted smaller f0 SD changes.
 ```{r echo=FALSE}
-print(tos |> filter(temperatureAffectsF0=="affects") |> arrange(ROI))
+print(tos |> filter(temperatureAffectsF0=="affects", section=="Lists") |> arrange(ROI))
 ```
-
-
 
 ## Convergence
 (following Levitan & Hirschberg 2011's method)
@@ -208,7 +167,7 @@ names(all) <- c("speaker", "type", "direction", "coefficient", "mock", "real", "
 ```
 
 ```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0medDiff))+
+ggplot(dat |> filter(task=="Lists"), aes(turnNormal, f0medDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -220,12 +179,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0medDiff, d$turnOverall,
+  c <- cor.test(d$f0medDiff, d$turnNormalTask,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
+    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnNormalTask,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -264,8 +223,9 @@ count <- count |>
 all <- rbind(all, count)
 ```
 
+
 ```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0maxDiff))+
+ggplot(dat |> filter(task=="Lists"), aes(turnNormalTask, f0sdDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~speaker)
@@ -277,69 +237,12 @@ names(corS) <- c("speaker", "type", "r", "p")
 
 for(s in unique(dat$speaker)){
   d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0maxDiff, d$turnOverall,
+  c <- cor.test(d$f0sdDiff, d$turnNormalTask,
                 alternative="two.sided", method="pearson")
   corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
   
   for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
-                  alternative="two.sided", method="pearson")
-    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
-  }
-}
-
-corS <- corS |> 
-  mutate(sign = ifelse(p < 0.05, "*", NA),
-         direction = case_when(
-           r < 0 ~ "convergence",
-           r > 0 ~ "divergence"))
-
-count <- data.frame(matrix(nrow=0, ncol=6))
-names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
-
-for(s in unique(corS$speaker)){
-  count[nrow(count)+1,] <- c(s,
-                             "convergence",
-                             corS$direction[corS$speaker==s & corS$type=="real"],
-                             corS$r[corS$speaker==s & corS$type=="real"],
-                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
-                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
-}
-
-count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
-
-count <- count |>
-  mutate_at("mock", as.numeric) |> 
-  arrange(mock) |> 
-  mutate(feature = "f0max",
-         section = "Lists",
-         real = case_when(
-           mock > 1 | is.na(real) ~ "no",
-           .default = as.character(real)
-         ))
-
-all <- rbind(all, count)
-```
-
-```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0sdDiff))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~speaker)
-```
-
-```{r, include=FALSE}
-corS <- data.frame(matrix(nrow=0, ncol=4))
-names(corS) <- c("speaker", "type", "r", "p")
-
-for(s in unique(dat$speaker)){
-  d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0sdDiff, d$turnOverall,
-                alternative="two.sided", method="pearson")
-  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
-  
-  for(i in 1:10){
-    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
+    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnNormalTask,
                   alternative="two.sided", method="pearson")
     corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
   }
@@ -378,7 +281,7 @@ count <- count |>
 all <- rbind(all, count)
 ```
 
-```{r}
+```{r, echo=FALSE}
 all <- all |> 
   mutate(sectionN = case_when(
     section=="entireExp" ~ 1,
@@ -491,107 +394,6 @@ No significant effects
 ##### Cheeks
 No significant effects
 
-#### Second part of experiment (Diapix)
-
-```{r, include=FALSE}
-d <- merge(all |> 
-             filter(section == "Diapix") |>
-             select(-condition) |> 
-             mutate_at(c("sign", "effect"), as.factor),
-           meta, by="speaker") |> 
-  mutate_at("condition", as.factor)
-
-# data set for poisson regression
-
-dt <- d |> 
-  group_by(effect, condition, ROI) |> 
-  summarize(count = n()) |> 
-  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
-  mutate(count = replace_na(count, 0))
-conditionCount <- d |> 
-  group_by(condition, ROI) |> 
-  summarize(condCount = n())
-dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
-
-dt$effect <- relevel(dt$effect, ref="ns")
-# contrasts(dt$condition) <- c(-.5,+.5)
-dt$condition <- relevel(dt$condition, ref="close")
-```
-
-##### Nose
-
-People *decrease* their temperature *more often* when they wanted more to *become friends* with their partner.
-```{r}
-ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
-  geom_boxplot()
-```
-
-```{r}
-tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Nose"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-##### Eyes
-
-Eye temperature *increased less often* when the speaker felt *closer* to their partner.
-```{r}
-ggplot(d |> filter(ROI=="Eyes"), aes(effect, likeability))+
-  geom_boxplot()
-```
-
-```{r}
-tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Eyes"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-##### Forehead
-
-```{r}
-ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
-  geom_bar()+
-  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-More increases in *impersonal*, but adjusted p value = 0.07
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Forehead"), family=binomial))
-```
-
-Forehead temperature *increased less often* when the speaker *liked* their partner *more*.
-```{r}
-ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
-  geom_boxplot()
-```
-
-```{r}
-tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Forehead"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate))
-```
-
-##### Cheeks
-
-```{r}
-ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
-  geom_bar()+
-  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-Cheek temperature tended to *increase more often* in the *impersonal* condition, but the adjusted p value was slightly above 0.05 (i.e., 0.053).
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-```
 
 # ONLY NULL FINDINGS
 
@@ -617,45 +419,10 @@ meta <- m
 
 ### Numerical measure (all speakers together; without Domino task)
 
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
-ipus <- merge(ipus, 
-              read.csv("C:/Users/offredet/Documents/1HU/ExperimentTemperature/Data/dominoTiming.csv", sep=";"),
-              by = "dyad", all=TRUE) |> 
-  mutate_at(c("dominoOnset", "dominoOffset"), as.numeric) |>  
-  mutate(delete = ifelse(
-    condition == "impersonal" & grepl("L3", file) & turnOnset > dominoOnset & turnOffset < dominoOffset,
-    "del",
-    "keep"
-  )) |>
-  filter(delete == "keep") |> 
-  select(-delete) |> 
-  group_by(speaker) |> 
-  mutate(f0meanz = (f0mean - mean(f0mean, na.rm=TRUE)) / sd(f0mean, na.rm=TRUE),
-         f0medz = (f0med - mean(f0med, na.rm=TRUE)) / sd(f0med, na.rm=TRUE),
-         f0sdz = (f0sd - mean(f0sd, na.rm=TRUE)) / sd(f0sd, na.rm=TRUE),
-         f0maxz = (f0max - mean(f0max, na.rm=TRUE)) / sd(f0max, na.rm=TRUE)) |> 
-  ungroup()
-```
 
 #### f0 median
 
--   Only during question lists: f0 median doesn't change in any condition.
-
-```{r}
-ggplot(ipus |> filter(task=="Lists"), aes(turnOverall, f0medz))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~condition)+
-  ggtitle("Question lists (1st part of experiment)")
-summary(m <- lmer(f0medz ~ turnOverall + (1|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0medz ~ turnOverall : condition + (1|speaker), ipus |> filter(task=="Lists")))
-anova(m, m1)
-par(mfrow=c(2, 2))
-hist(resid(m))
-qqnorm(resid(m));qqline(resid(m))
-plot(fitted(m), resid(m))
-```
+Significant effect
 
 #### f0 SD
 
@@ -663,203 +430,11 @@ Significant effect
 
 #### Temperature effects on f0
 
-No effects of temperature on f0 during "Lists"
-
-
+Significant effects
 
 ## Convergence
-(following Levitan & Hirschberg 2011's method)
 
-```{r, include=FALSE}
-load(paste0(here::here(), "/data/speechData.RData"))
-
-all <- data.frame(matrix(nrow=0, ncol=9))
-names(all) <- c("speaker", "type", "direction", "coefficient", "mock", "real", "condition", "feature", "section")
-```
-
-```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0medDiff))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~speaker)
-```
-
-```{r, include=FALSE}
-corS <- data.frame(matrix(nrow=0, ncol=4))
-names(corS) <- c("speaker", "type", "r", "p")
-
-for(s in unique(dat$speaker)){
-  d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0medDiff, d$turnOverall,
-                alternative="two.sided", method="pearson")
-  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
-  
-  for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMedDiff", i)], d$turnOverall,
-                  alternative="two.sided", method="pearson")
-    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
-  }
-}
-
-corS <- corS |> 
-  mutate(sign = ifelse(p < 0.05, "*", NA),
-         direction = case_when(
-           r < 0 ~ "convergence",
-           r > 0 ~ "divergence"))
-
-count <- data.frame(matrix(nrow=0, ncol=6))
-names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
-
-for(s in unique(corS$speaker)){
-  count[nrow(count)+1,] <- c(s,
-                             "convergence",
-                             corS$direction[corS$speaker==s & corS$type=="real"],
-                             corS$r[corS$speaker==s & corS$type=="real"],
-                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
-                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
-}
-
-count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
-
-count <- count |>
-  mutate_at("mock", as.numeric) |> 
-  arrange(mock) |> 
-  mutate(feature = "f0median",
-         section = "Lists",
-         real = case_when(
-           mock > 1 | is.na(real) ~ "no",
-           .default = as.character(real)
-         ))
-
-all <- rbind(all, count)
-```
-
-```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0maxDiff))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~speaker)
-```
-
-```{r, include=FALSE}
-corS <- data.frame(matrix(nrow=0, ncol=4))
-names(corS) <- c("speaker", "type", "r", "p")
-
-for(s in unique(dat$speaker)){
-  d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0maxDiff, d$turnOverall,
-                alternative="two.sided", method="pearson")
-  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
-  
-  for(i in 1:10){
-    c <- cor.test(d[,paste0("mockMaxDiff", i)], d$turnOverall,
-                  alternative="two.sided", method="pearson")
-    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
-  }
-}
-
-corS <- corS |> 
-  mutate(sign = ifelse(p < 0.05, "*", NA),
-         direction = case_when(
-           r < 0 ~ "convergence",
-           r > 0 ~ "divergence"))
-
-count <- data.frame(matrix(nrow=0, ncol=6))
-names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
-
-for(s in unique(corS$speaker)){
-  count[nrow(count)+1,] <- c(s,
-                             "convergence",
-                             corS$direction[corS$speaker==s & corS$type=="real"],
-                             corS$r[corS$speaker==s & corS$type=="real"],
-                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
-                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
-}
-
-count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
-
-count <- count |>
-  mutate_at("mock", as.numeric) |> 
-  arrange(mock) |> 
-  mutate(feature = "f0max",
-         section = "Lists",
-         real = case_when(
-           mock > 1 | is.na(real) ~ "no",
-           .default = as.character(real)
-         ))
-
-all <- rbind(all, count)
-```
-
-```{r}
-ggplot(dat |> filter(task=="Lists"), aes(turnOverall, f0sdDiff))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~speaker)
-```
-
-```{r, include=FALSE}
-corS <- data.frame(matrix(nrow=0, ncol=4))
-names(corS) <- c("speaker", "type", "r", "p")
-
-for(s in unique(dat$speaker)){
-  d <- dat |> filter(speaker==s, task=="Lists")
-  c <- cor.test(d$f0sdDiff, d$turnOverall,
-                alternative="two.sided", method="pearson")
-  corS[nrow(corS)+1,] <- c(s, "real", c$estimate, c$p.value)
-  
-  for(i in 1:10){
-    c <- cor.test(d[,paste0("mockSdDiff", i)], d$turnOverall,
-                  alternative="two.sided", method="pearson")
-    corS[nrow(corS)+1,] <- c(s, "mock", c$estimate, c$p.value)
-  }
-}
-
-corS <- corS |> 
-  mutate(sign = ifelse(p < 0.05, "*", NA),
-         direction = case_when(
-           r < 0 ~ "convergence",
-           r > 0 ~ "divergence"))
-
-count <- data.frame(matrix(nrow=0, ncol=6))
-names(count) <- c("speaker", "type", "direction", "coefficient", "mock", "real")
-
-for(s in unique(corS$speaker)){
-  count[nrow(count)+1,] <- c(s,
-                             "convergence",
-                             corS$direction[corS$speaker==s & corS$type=="real"],
-                             corS$r[corS$speaker==s & corS$type=="real"],
-                             sum(!is.na(corS$sign[corS$speaker==s & corS$type=="mock"])==TRUE),
-                             ifelse(corS$sign[corS$speaker==s & corS$type=="real"]=="*", "yes", "no"))
-}
-
-count <- merge(count, dat |> select(condition, speaker) |> filter(!duplicated(speaker)), by ="speaker")
-
-count <- count |>
-  mutate_at("mock", as.numeric) |> 
-  arrange(mock) |> 
-  mutate(feature = "f0sd",
-         section = "Lists",
-         real = case_when(
-           mock > 1 | is.na(real) ~ "no",
-           .default = as.character(real)
-         ))
-
-all <- rbind(all, count)
-```
-
-```{r}
-all <- all |> 
-  mutate(sectionN = case_when(
-    section=="entireExp" ~ 1,
-    section=="Lists" ~ 2,
-    section=="Diapix" ~ 3
-  )) |> 
-  rename(entrain=real) |> 
-  arrange(sectionN) |> 
-  select(-sectionN)
-print(all |> filter(entrain=="yes"))
-```
+Only a couple of significant effects -- see above.
 
 # TEMPERATURE ANALYSIS
 
@@ -1064,142 +639,6 @@ emmeans(m, pairwise~condition, by="effect")
 
 summary(m <- glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Cheeks"), family=binomial))
 ```
-
-No effect of the perception of their partner.
-```{r}
-tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Cheeks"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Cheeks"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Cheeks"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Cheeks"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-#### Second part of experiment (Diapix)
-
-```{r}
-d <- merge(all |> 
-             filter(section == "Diapix") |>
-             select(-condition) |> 
-             mutate_at(c("sign", "effect"), as.factor),
-           meta, by="speaker") |> 
-  mutate_at("condition", as.factor)
-```
-
-```{r}
-# data set for poisson regression
-
-dt <- d |> 
-  group_by(effect, condition, ROI) |> 
-  summarize(count = n()) |> 
-  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
-  mutate(count = replace_na(count, 0))
-conditionCount <- d |> 
-  group_by(condition, ROI) |> 
-  summarize(condCount = n())
-dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
-
-dt$effect <- relevel(dt$effect, ref="ns")
-# contrasts(dt$condition) <- c(-.5,+.5)
-dt$condition <- relevel(dt$condition, ref="close")
-```
-
-##### Nose
-
-```{r}
-ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
-  geom_bar()+
-  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-No effect of condition
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-
-summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Nose"), family=binomial))
-```
-
-The null effects of perception of partner
-```{r}
-tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Nose"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Nose"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Nose"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-##### Eyes
-
-```{r}
-ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
-  geom_bar()+
-  ggtitle("EYES: Temperature change across conditions (Diapix)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-No effect of condition
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-
-summary(glmer(sign ~ condition + (1|speaker), d |> filter(ROI=="Eyes"), family=binomial))
-```
-
-The null effects of perception of partner
-```{r}
-tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Eyes"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Eyes"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Eyes"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-##### Forehead
-
-
-The null effects of perception of partner
-```{r}
-tidy(m <- nnet::multinom(effect ~ becomeFriends, data=d |> filter(ROI=="Forehead"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ closeness, data=d |> filter(ROI=="Forehead"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-
-tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Forehead"))) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-```
-
-##### Cheeks
 
 No effect of the perception of their partner.
 ```{r}
