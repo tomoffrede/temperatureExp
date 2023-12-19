@@ -2,11 +2,13 @@
 # Figures for Speech Prosody paper
 
 library(tidyverse)
+library(broom)
 
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/tempDataChange.RData"))
+load(paste0(here::here(), "/data/tempData.RData"))
 meta <- m
 
 folderFig <- paste0(here::here(), "/figures/SpeechProsody/")
@@ -27,10 +29,10 @@ theme_set(theme_minimal()+
 ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0medz))+
   geom_point()+
   geom_smooth(method="lm")+
-  facet_wrap(~condition, labeller = labeller(condition = c("close" = "Close condition", "impersonal" = "Impersonal condition")))+
+  facet_wrap(~condition, labeller = labeller(condition = c("close" = "Personal condition", "impersonal" = "Impersonal condition")))+
   labs(x="Time (normalized)", y = "f0 median (z-scored)")+
   scale_x_continuous(breaks=c(0, 0.5, 1), labels=c("0", "0.5", "1"))
-ggsave(paste0(folderFig, "f0median.png"), dpi="retina", height=1200, width=1500, unit="px")
+ggsave(paste0(folderFig, "f0median.png"), dpi="retina", height=1000, width=1500, unit="px")
 
 
 #################################################################################
@@ -62,7 +64,7 @@ ggplot(ts |> filter(ROI%in%c("Eyes", "Forehead"), f0sdzChange > -4), aes(tempCha
   geom_smooth(method="lm")+
   facet_wrap(~ROI)+
   labs(x="Temperature change (°C)", y = "Change in f0 SD (z-scored)")
-ggsave(paste0(folderFig, "f0sd_forehead.png"), dpi="retina", height=1050, width=1500, unit="px")
+ggsave(paste0(folderFig, "f0sd_forehead.png"), dpi="retina", height=1000, width=1500, unit="px")
 
 
 #################################################################################
@@ -114,8 +116,11 @@ ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends, color=effect))+
   geom_boxplot(size=1.5)+
   # ggdist::stat_halfeye(adjust = .6,  width = .6, justification = -.2, .width = c(.5, .95))+
   scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-  scale_x_discrete(labels=c("Not sign.", "Decrease", "Increase"))+
+  scale_x_discrete(labels=c("Not significant", "Decrease", "Increase"))+
   theme(legend.position="none")+
-  labs(x="Nose temperature change", y="Desire to become friends")+
-  theme(axis.text.x = element_text(size=12, color="black"))
-ggsave(paste0(folderFig, "noseFriends.png"), dpi="retina", height=1000, width=1500, unit="px")
+  labs(x="Nose temperature change", y="Likelihood of friendship")+
+  theme(axis.text.x = element_text(size=12, color="black"))+
+  ggsignif::geom_signif(comparisons = list(c("increase", "ns")),
+                        annotations = c("*"), textsize=7, color="black")+
+  scale_y_continuous(limits=c(2,9.67), breaks=c(2,4,6,8,10), labels=c("2","4","6","8",""))
+ggsave(paste0(folderFig, "noseFriends.png"), dpi="retina", height=1050, width=1500, unit="px")

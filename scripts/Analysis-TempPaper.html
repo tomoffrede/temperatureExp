@@ -1585,7 +1585,7 @@ running.</p>
 <h2>Second part of experiment (Diapix)</h2>
 <div id="nose-1" class="section level3">
 <h3>Nose</h3>
-<p>People <em>decrease</em> their temperature <em>more often</em> when
+<p>People <em>decrease</em> their temperature <em>less often</em> when
 they wanted more to <em>become friends</em> with their partner.</p>
 <pre class="r"><code>ggplot(d |&gt; filter(ROI==&quot;Nose&quot;), aes(effect, becomeFriends))+
   geom_boxplot()</code></pre>
@@ -1978,8 +1978,8 @@ speaker scored higher on neuroticism.</p>
 <pre class="r"><code>tidy(m &lt;- nnet::multinom(effect ~ neuroticism, data=d |&gt; filter(ROI==&quot;Eyes&quot;))) |&gt; 
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
-<pre><code>## Warning in nnet::multinom(effect ~ neuroticism, data = filter(d, ROI == : group
-## &#39;decrease&#39; is empty</code></pre>
+<pre><code>## Warning in nnet::multinom(effect ~ neuroticism, data = filter(d, ROI == : Gruppe
+## &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 12.616571
@@ -4406,7 +4406,7 @@ temperature.</p>
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ condition, data = filter(d, ROI == &quot;Eyes&quot;)):
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## final  value 15.561202 
@@ -4479,7 +4479,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ closeness, data = filter(d, ROI == &quot;Eyes&quot;)):
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## final  value 15.642773 
@@ -4493,7 +4493,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ becomeFriends, data = filter(d, ROI == :
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 15.070457
@@ -4508,7 +4508,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ similarity, data = filter(d, ROI == &quot;Eyes&quot;)):
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 15.263253
@@ -4522,8 +4522,8 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
 <pre class="r"><code>tidy(m &lt;- nnet::multinom(effect ~ likeability, data=d |&gt; filter(ROI==&quot;Eyes&quot;))) |&gt; 
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
-<pre><code>## Warning in nnet::multinom(effect ~ likeability, data = filter(d, ROI == : group
-## &#39;decrease&#39; is empty</code></pre>
+<pre><code>## Warning in nnet::multinom(effect ~ likeability, data = filter(d, ROI == : Gruppe
+## &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 14.953459
@@ -4538,7 +4538,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ agreeableness, data = filter(d, ROI == :
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 15.329030
@@ -4552,8 +4552,8 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
 <pre class="r"><code>tidy(m &lt;- nnet::multinom(effect ~ extraversion, data=d |&gt; filter(ROI==&quot;Eyes&quot;))) |&gt; 
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
-<pre><code>## Warning in nnet::multinom(effect ~ extraversion, data = filter(d, ROI == : group
-## &#39;decrease&#39; is empty</code></pre>
+<pre><code>## Warning in nnet::multinom(effect ~ extraversion, data = filter(d, ROI == :
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## final  value 15.502072 
@@ -4567,7 +4567,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ openness, data = filter(d, ROI == &quot;Eyes&quot;)):
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 15.541561
@@ -4582,7 +4582,7 @@ tidy(m &lt;- nnet::multinom(effect ~ closeness, data=d |&gt; filter(ROI==&quot;E
   as_tibble() |&gt; 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities</code></pre>
 <pre><code>## Warning in nnet::multinom(effect ~ conscientiousness, data = filter(d, ROI == :
-## group &#39;decrease&#39; is empty</code></pre>
+## Gruppe &#39;decrease&#39; ist leer</code></pre>
 <pre><code>## # weights:  3 (2 variable)
 ## initial  value 22.873857 
 ## iter  10 value 15.515664
