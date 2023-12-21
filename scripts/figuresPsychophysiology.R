@@ -6,6 +6,7 @@ library(ggpubr)
 library(ggsignif)
 library(broom)
 library(viridis)
+library(patchwork)
 
 load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
@@ -131,7 +132,7 @@ theme_set(theme_minimal()+
 (p1 <- ggplot(meta, aes(condition, comfortPre))+
    geom_boxplot(size=1)+
    # ggdist::stat_halfeye(adjust = .7,  width = .5, justification = -.15, .width = c(.5, .95))+
-   labs(title="Before Interaction", y="Thermal Comfort", x="")+
+   labs(title="Before Interaction", y="Thermal Comfort", x=NULL)+
    theme(plot.title = element_text(size=12))+
    scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
    ylim(c(3.5,9)))
@@ -142,7 +143,7 @@ theme_set(theme_minimal()+
                 annotations = c("*"),
                 y=8.5, textsize=6, size=1)+
     # ggdist::stat_halfeye(adjust = .7,  width = .5, justification = -.15, .width = c(.5, .95))+
-    labs(title="After Interaction", y="", x="")+
+    labs(title="After Interaction", y=NULL, x=NULL)+
     theme(plot.title = element_text(size=12))+
     scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
     ylim(c(3.5,9)))
@@ -161,7 +162,7 @@ ggsave(paste0(folderFig, "thermalComfort.png"), dpi="retina", height = 1150, wid
    geom_signif(comparisons = list(c("close", "impersonal")),
                annotations = c("*"),
                y=8.3, textsize=6, size=1)+
-   labs(title="Closeness", y="Self-Rating", x="")+
+   labs(title="Closeness", y="Self-Rating", x=NULL)+
    theme(plot.title = element_text(size=12))+
    scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
    ylim(c(1,9)))
@@ -172,7 +173,7 @@ ggsave(paste0(folderFig, "thermalComfort.png"), dpi="retina", height = 1150, wid
                 annotations = c("*"),
                 y=2.5, textsize=6, size=1,
                 vjust=2, tip_length = -0.03)+
-    labs(title="Degree of Liking", y="", x="")+
+    labs(title="Degree of Liking", y=NULL, x=NULL)+
     theme(plot.title = element_text(size=12))+
     scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
     ylim(c(1,9)))
@@ -229,7 +230,7 @@ d <- merge(all |>
                textsize=6, size=1,
                y=9.2)+
    labs(title="Nose", y = "Likelihood of friendship", x="Temperature change")+
-   # scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
+   scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
    # scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
    theme(legend.position="none",
@@ -238,7 +239,7 @@ d <- merge(all |>
 
 annotate_figure(n,
                 top=text_grob(expression("1"^"st"* " half of experiment: Temperature change and emotion"), size=14))
-ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1000, width=1700, units = "px")
+ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1200, width=1700, units = "px")
 
 ############################################################
 
@@ -254,13 +255,15 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1000, widt
                annotations = c("*"),
                textsize=6, size=1,
                y=9.3)+
-   labs(title="Nose", y = "Likelihood of friendship", x="")+
+   labs(title="Nose", y = "Likelihood of friendship", x=NULL)+
    scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
    scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-   theme(legend.position="none",
-         plot.title = element_text(color=colorN))
-)
+   theme(plot.title = element_text(color=colorN, size=18),
+         axis.title = element_text(size=16),
+         axis.text.x = element_text(size=16),
+         axis.text.y = element_text(size=12))
+) 
 
 (e <- ggplot(d |> filter(ROI=="Eyes", section=="Diapix"), aes(effect, closeness))+
     geom_boxplot(size=1, color=colorE)+
@@ -268,12 +271,14 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1000, widt
                 annotations = c("*"),
                 textsize=6, size=1,
                 y=8.4)+
-    labs(title="Eyes", y = "Closeness", x="Temperature change")+
+    labs(title="Eyes", y = "Closeness", x=NULL)+
     scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-    theme(legend.position="none",
-          plot.title = element_text(color=colorE))
+    theme(plot.title = element_text(color=colorE, size=18),
+          axis.title = element_text(size=16),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=12))
 )
 
 (f <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, likeability))+
@@ -282,16 +287,24 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1000, widt
                 annotations = c("*"),
                 textsize=6, size=1,
                 y=9.25)+
-    labs(title="Forehead", y = "Degree of liking", x="")+
+    labs(title="Forehead", y = "Degree of liking", x=NULL)+
     scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-    theme(legend.position="none",
-          plot.title = element_text(color=colorF))
+    theme(plot.title = element_text(color=colorF, size=18),
+          axis.title = element_text(size=16),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=12))
 )
 
-annotate_figure(ggarrange(n, e, f, nrow=1),
-                top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and emotion"), size=14))
+cowplot::ggdraw(cowplot::plot_grid(cowplot::plot_grid(NULL, f, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
+                   cowplot::plot_grid(n, e, ncol=2),
+                   ncol=1))+
+  
+
+annotate_figure(ggarrange(n, e, f, nrow=2, ncol=2),
+                top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and emotion"), size=18),
+                bottom=text_grob("Temperature change", size=16))
 ggsave(paste0(folderFig, "emotion-diapix.png"), dpi="retina", height = 2000, width=3000, units = "px")
 ############################################################
 
@@ -304,13 +317,11 @@ ggsave(paste0(folderFig, "emotion-diapix.png"), dpi="retina", height = 2000, wid
    geom_signif(comparisons = list(c("ns", "increase")),
                annotations = c("*"),
                textsize=6, size=1,
-               y=4.5)+
+               y=4.6)+
    labs(title="Cheeks", y = "Agreeableness", x="Temperature change")+
-   # scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
+   scale_y_continuous(limits=c(2.5,5), breaks=c(2, 4, 6, 8))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
-   # scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-   theme(legend.position="none",
-         plot.title = element_text(color=colorC))
+   theme(plot.title = element_text(color=colorC))
 )
 
 annotate_figure(c,
@@ -335,7 +346,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                annotations = c("*"),
                textsize=9, size=1,
                y= 5)+
-   labs(title="Nose", y = "Score", x="")+
+   labs(title="Nose", y = "Score", x=NULL)+
    scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
    theme(legend.position="none",
@@ -350,7 +361,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Forehead", y = "", x="")+
+    labs(title="Forehead", y = NULL, x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -365,7 +376,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*", "**"),
                 textsize=9, size=1,
                 y=c(5.1, 5.6))+
-    labs(title="Nose", y = "Score", x="")+
+    labs(title="Nose", y = "Score", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -380,7 +391,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5.35)+
-    labs(title="Forehead", y = "", x="")+
+    labs(title="Forehead", y = NULL, x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -399,9 +410,9 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
-           plot.title = element_text(color=colorE, size=20),
-           axis.title = element_text(size=18),
-           axis.text.x = element_text(size=18))
+          plot.title = element_text(color=colorE, size=20),
+          axis.title = element_text(size=18),
+          axis.text.x = element_text(size=18))
 )
 
 (c <- ggplot(d |> filter(ROI=="Cheeks", section=="Diapix"), aes(effect, agreeableness))+
@@ -410,7 +421,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Cheeks", y = "", x="Temperature change")+
+    labs(title="Cheeks", y = NULL, x="Temperature change")+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -431,29 +442,43 @@ ggsave(paste0(folderFig, "bfi-diapix.png"), dpi="retina", height = 5000, width=3
 # Forehead
 # Cheeks
 
-(f <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(condition, fill=effect))+
-   geom_bar()+
-   # geom_hline(yintercept=2.3)+
-   # geom_segment(y = 2.3, yend = 2.3,
-   #              arrow = arrow(length = unit(0.03, "npc"), ends = "both"))
-   labs(title="Forehead", y = "Frequency of effect", x="", fill="Temperature change")+
-   scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
-   scale_fill_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "gray"),
-                     labels=c("ns"="Not signif.", "increase"="Decrease", "increase"="Increase"))+
-   theme(legend.position="none",
-         plot.title = element_text(color=colorF))
-)
+data <- d |> 
+  filter(section=="Diapix", ROI%in%c("Forehead", "Cheeks")) |> 
+  select(speaker, condition, effect, ROI) |> 
+  group_by(condition, effect, ROI) |> 
+  summarize(effectCount = n())
 
-(c <- ggplot(d |> filter(ROI=="Cheeks", section=="Diapix"), aes(condition, fill=effect))+
-    geom_bar()+
-    labs(title="Cheeks", y = "", x="", fill="Temperature change")+
+(f <- ggplot(data |> filter(ROI=="Forehead"), aes(condition, effectCount, fill=effect))+
+    geom_bar(stat="identity")+
+    geom_signif(comparisons = list(c("close", "impersonal")),
+                annotations = c("*"),
+                y=20.5,
+                size=1, textsize=7)+
+    labs(title="Forehead", y = "Frequency of effect", x=NULL, fill="Temperature change")+
     scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
     scale_fill_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "gray"),
                       labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
+    ylim(c(0,23))+
+    theme(plot.title = element_text(color=colorF))
+)
+(c <- ggplot(data |> filter(ROI=="Cheeks"), aes(condition, effectCount, fill=effect))+
+    geom_bar(stat="identity")+
+    geom_signif(comparisons = list(c("close", "impersonal")),
+                annotations = c("*"),
+                y=20.5,
+                size=1, textsize=7)+
+    labs(title="Cheeks", y = NULL, x=NULL, fill="Temperature change")+
+    scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
+    scale_fill_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "gray"),
+                      labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
+    ylim(c(0,23))+
     theme(plot.title = element_text(color=colorC))
 )
 
-annotate_figure(ggarrange(f,c),
-                top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change & condition", size=14)),
+
+
+annotate_figure(ggarrange(f,c, common.legend = TRUE, legend="right"),
+                top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and condition"), size=14),
                 bottom=text_grob("Condition", size=12))
-ggsave(paste0(folderFig, "condition-diapix.png"), dpi="retina", height = 1000, width=1700, units = "px")
+
+ggsave(paste0(folderFig, "condition-diapix.png"), dpi="retina", height = 1200, width=2000, units = "px")
