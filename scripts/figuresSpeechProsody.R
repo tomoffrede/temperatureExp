@@ -105,6 +105,7 @@ all <- all |>
   mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
 all$effect <- relevel(all$effect, ref="ns")
+all$effect <- factor(all$effect, levels=c("decrease", "ns", "increase"))
 d <- merge(all |> 
              filter(section == "Lists") |>
              select(-condition) |> 
@@ -113,10 +114,10 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 
 ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends, color=effect))+
-  geom_boxplot(size=1.5)+
-  # ggdist::stat_halfeye(adjust = .6,  width = .6, justification = -.2, .width = c(.5, .95))+
+  geom_boxplot(width=0.15, fatten = NULL)+
+  ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95))+
   scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-  scale_x_discrete(labels=c("Not significant", "Decrease", "Increase"))+
+  scale_x_discrete(labels=c("Decrease", "Not significant", "Increase"))+
   theme(legend.position="none")+
   labs(x="Nose temperature change", y="Likelihood of friendship")+
   theme(axis.text.x = element_text(size=12, color="black"))+

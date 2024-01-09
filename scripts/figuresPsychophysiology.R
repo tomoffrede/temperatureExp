@@ -25,6 +25,17 @@ colorC <- "#EB493EFF"
 # to get color codes from viridis:
 # scales::show_col(viridis_pal(option="F")(30))
 
+# set theme for figures
+theme_set(theme_minimal()+
+            theme(panel.grid.minor = element_blank(),
+                  panel.grid.major = element_blank(),
+                  axis.title = element_text(size=12),
+                  axis.text.x = element_text(size=12, color="black"),
+                  strip.text = element_text(size = 12),
+                  plot.title = element_text(size=14, hjust=0.5),
+                  legend.title = element_text(size=11),
+                  legend.text = element_text(size=10)))
+
 # TESTING COLORS
 {
   
@@ -112,20 +123,8 @@ colorC <- "#EB493EFF"
   #                 top=text_grob(expression("1"^"st"* " half of experiment: Temperature change and emotion"), size=14))
 }
 
-#######################################################################################
+###############################################
 
-# set theme for figures
-theme_set(theme_minimal()+
-            theme(panel.grid.minor = element_blank(),
-                  panel.grid.major = element_blank(),
-                  axis.title = element_text(size=12),
-                  axis.text.x = element_text(size=12, color="black"),
-                  strip.text = element_text(size = 12),
-                  plot.title = element_text(size=14, hjust=0.5),
-                  legend.title = element_text(size=11),
-                  legend.text = element_text(size=10)))
-
-############################################################
 
 # thermal comfort
 
@@ -144,7 +143,8 @@ theme_set(theme_minimal()+
                 y=8.5, textsize=6, size=1)+
     # ggdist::stat_halfeye(adjust = .7,  width = .5, justification = -.15, .width = c(.5, .95))+
     labs(title="After Interaction", y=NULL, x=NULL)+
-    theme(plot.title = element_text(size=12))+
+    theme(plot.title = element_text(size=12),
+          axis.text.y = element_blank())+
     scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
     ylim(c(3.5,9)))
 
@@ -212,11 +212,13 @@ all <- all |>
   mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
 all$effect <- relevel(all$effect, ref="ns")
+all$effect <- factor(all$effect, levels=c("decrease", "ns", "increase"))
 d <- merge(all |> 
              select(-condition) |> 
              mutate_at(c("sign", "effect"), as.factor),
            meta, by="speaker") |> 
   mutate_at("condition", as.factor)
+
 ############################################################
 
 # Social Emotion - Questions section
@@ -297,12 +299,11 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1200, widt
           axis.text.y = element_text(size=12))
 )
 
-cowplot::ggdraw(cowplot::plot_grid(cowplot::plot_grid(NULL, f, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
+p <- cowplot::ggdraw(cowplot::plot_grid(cowplot::plot_grid(NULL, f, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
                    cowplot::plot_grid(n, e, ncol=2),
-                   ncol=1))+
-  
+                   ncol=1))
 
-annotate_figure(ggarrange(n, e, f, nrow=2, ncol=2),
+annotate_figure(p,
                 top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and emotion"), size=18),
                 bottom=text_grob("Temperature change", size=16))
 ggsave(paste0(folderFig, "emotion-diapix.png"), dpi="retina", height = 2000, width=3000, units = "px")
@@ -346,7 +347,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                annotations = c("*"),
                textsize=9, size=1,
                y= 5)+
-   labs(title="Nose", y = "Score", x=NULL)+
+   labs(title="Nose", y =NULL, x=NULL)+
    scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
    theme(legend.position="none",
@@ -361,7 +362,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Forehead", y = NULL, x=NULL)+
+    labs(title="Forehead", y = "Score", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -376,7 +377,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*", "**"),
                 textsize=9, size=1,
                 y=c(5.1, 5.6))+
-    labs(title="Nose", y = "Score", x=NULL)+
+    labs(title="Nose", y = NULL, x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -391,7 +392,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5.35)+
-    labs(title="Forehead", y = NULL, x=NULL)+
+    labs(title="Forehead", y = "Score", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -430,8 +431,8 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
           axis.text.x = element_text(size=18))
 )
 
-ggarrange(annotate_figure(ggarrange(n1,f1), top=text_grob("Extraversion", size=20)),
-          annotate_figure(ggarrange(n2,f2), top=text_grob("Openness", size=20)),
+ggarrange(annotate_figure(ggarrange(f1,n1), top=text_grob("Extraversion", size=20)),
+          annotate_figure(ggarrange(f2,n2), top=text_grob("Openness", size=20)),
           annotate_figure(ggarrange(e,c), top=text_grob("Agreeableness", size=20)),
           nrow=3)
 ggsave(paste0(folderFig, "bfi-diapix.png"), dpi="retina", height = 5000, width=3000, units = "px")
@@ -441,6 +442,8 @@ ggsave(paste0(folderFig, "bfi-diapix.png"), dpi="retina", height = 5000, width=3
 
 # Forehead
 # Cheeks
+
+d$effect <- factor(d$effect, levels=c("ns", "decrease", "increase"))
 
 data <- d |> 
   filter(section=="Diapix", ROI%in%c("Forehead", "Cheeks")) |> 

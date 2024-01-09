@@ -32,7 +32,7 @@ library(nnet)
 library(emmeans)
 
 load(paste0(here::here(), "/data/speechData.RData"))
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+load(paste0(here::here(), "/data/speechData-allIPUs-intensity.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 load(paste0(here::here(), "/data/tempDataChange.RData"))
@@ -54,8 +54,10 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0medz))+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
 summary(m <- lmer(f0medz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0medz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0medz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists", !is.na(intz))))
+summary(m2 <- lmer(f0medz ~ turnNormalTask : condition + intz + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists", !is.na(intz))))
 anova(m, m1)
+anova(m1, m2)
 par(mfrow=c(2, 2))
 hist(resid(m1))
 qqnorm(resid(m1));qqline(resid(m1))
@@ -86,8 +88,10 @@ ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, f0sdz))+
   facet_wrap(~condition)+
   ggtitle("Question lists (1st part of experiment)")
 summary(m <- lmer(f0sdz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
-summary(m1 <- lmer(f0sdz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(f0sdz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists", !is.na(intz))))
+summary(m2 <- lmer(f0sdz ~ turnNormalTask : condition + intz + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists", !is.na(intz))))
 anova(m, m1)
+anova(m1, m2)
 par(mfrow=c(2, 2))
 hist(resid(m))
 qqnorm(resid(m));qqline(resid(m))
@@ -105,6 +109,41 @@ anova(m, m2)
 anova(m, m3)
 anova(m, m4)
 ```
+
+#### Intensity
+
+Intensity goes down in both conditions. Hence, I don't explain the f0 effect above through changes in intensity.
+
+```{r}
+ggplot(ipus |> filter(task=="Lists"), aes(turnNormalTask, intz))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~condition)+
+  ggtitle("Question lists (1st part of experiment)")
+summary(m <- lmer(intz ~ turnNormalTask + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+summary(m1 <- lmer(intz ~ turnNormalTask : condition + (1+turnNormalTask|speaker), ipus |> filter(task=="Lists")))
+anova(m, m1)
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+##### Mediation
+
+I'm not sure about this analysis (if it's correct and/or informative).
+
+```{r}
+# summary(fit.totalEffect <- lme4::lmer(f0medz ~ turnNormalTask : condition + (1|speaker), ipus |> filter(!is.na(intz))))
+summary(fit.mediator <- lme4::lmer(intz ~ turnNormalTask : condition + (1|speaker), ipus |> filter(!is.na(intz), !is.na(f0medz))))
+summary(fit.both <- lme4::lmer(f0medz ~ intz + turnNormalTask : condition + intz : turnNormalTask + (1|speaker), ipus |> filter(!is.na(intz), !is.na(f0medz))))
+
+medResult1 <- mediation::mediate(fit.mediator, fit.both, treat = "condition", mediator = "intz", covariates = list(turnNormalTask=0.1), boot=F)
+medResult2 <- mediation::mediate(fit.mediator, fit.both, treat = "condition", mediator = "intz", covariates = list(turnNormalTask=0.9), boot=F)
+summary(medResult1)
+summary(medResult2)
+```
+
 
 #### Temperature effects on f0
 
@@ -434,7 +473,7 @@ library(nnet)
 library(emmeans)
 
 load(paste0(here::here(), "/data/speechData.RData"))
-load(paste0(here::here(), "/data/speechData-allIPUs.RData"))
+load(paste0(here::here(), "/data/speechData-allIPUs-intensity.RData"))
 load(paste0(here::here(), "/data/individualTemp.RData"))
 load(paste0(here::here(), "/data/metadata-clean.RData"))
 meta <- m
