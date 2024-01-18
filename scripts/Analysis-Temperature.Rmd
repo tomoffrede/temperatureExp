@@ -28,6 +28,19 @@ load(paste0(here::here(), "/data/metadata-clean.RData"))
 meta <- m
 folderFig1 <- paste0(here::here(), "/figures/temperature/tempChange/")
 folderFig2 <- paste0(here::here(), "/figures/temperature/convergence/")
+
+# dat <- dat |>
+#   mutate(closenessOG = closeness,
+#          similarityOG = similarity,
+#          likeabilityOG = likeability,
+#          becomeFriendsOG = becomeFriends) |> 
+#   pivot_longer(col= c("closeness", "similarity", "likeability", "becomeFriends"),
+#                names_to = "rcitType",
+#                values_to = "rcitRating") |> 
+#   rename(closeness = closenessOG,
+#          similarity = similarityOG,
+#          likeability = likeabilityOG,
+#          becomeFriends = becomeFriendsOG)
 ```
 
 # Summary of Results
@@ -126,7 +139,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 
 ```{r}
 # for(roi in unique(dat$ROI)){
-#   ggplot(dat |> filter(ROI==roi), aes(time, temperature, color=speaker))+
+#   ggplot(dat |> filter(ROI==roi), aes(timeN, temperature, color=speaker))+
 #     geom_point()+
 #     geom_smooth(method="lm")+
 #     facet_wrap(~dyad, scales = "free_x")+
@@ -134,7 +147,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 #   ggsave(paste0(folderFig1, roi, ".png"), width=3000, height=2600, units = "px")
 #   
 #   for(con in unique(dat$condition)){
-#     ggplot(dat |> filter(ROI==roi, condition==con), aes(time, temperature, color=speaker))+
+#     ggplot(dat |> filter(ROI==roi, condition==con), aes(timeN, temperature, color=speaker))+
 #     geom_point()+
 #     geom_smooth(method="lm")+
 #     facet_wrap(~dyad, scales = "free_x")+
@@ -151,7 +164,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 #     group_by(speaker) |>
 #     filter(length(unique(task))==2) |>
 #     ungroup()
-#     ggplot(d, aes(time, temperature, color=task))+
+#     ggplot(d, aes(timeN, temperature, color=task))+
 #       geom_point()+
 #       geom_smooth(method="lm")+
 #       facet_wrap(~speaker, scales = "free_x")+
@@ -162,7 +175,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 
 ```{r}
 # for(roi in unique(dat$ROI)){
-#   ggplot(dat |> filter(ROI==roi, grepl("-A", speaker)), aes(time, tempDiff))+
+#   ggplot(dat |> filter(ROI==roi, grepl("-A", speaker)), aes(timeN, tempDiff))+
 #     geom_point()+
 #     geom_smooth(method="lm")+
 #     facet_wrap(~dyad, scales = "free_x")+
@@ -170,7 +183,7 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 #   ggsave(paste0(folderFig2, roi, ".png"), width=3000, height=2600, units = "px")
 #   
 #   for(con in unique(dat$condition)){
-#     ggplot(dat |> filter(ROI==roi, grepl("-A", speaker), condition==con), aes(time, tempDiff))+
+#     ggplot(dat |> filter(ROI==roi, grepl("-A", speaker), condition==con), aes(timeN, tempDiff))+
 #     geom_point()+
 #     geom_smooth(method="lm")+
 #     facet_wrap(~dyad, scales = "free_x")+
@@ -187,14 +200,12 @@ See folder: R project temperatureExp > figures > temperature > tempChange OR con
 ```{r}
 all <- data.frame(matrix(nrow=0, ncol=7))
 names(all) <- c("speaker", "condition", "ROI", "direction", "t", "p", "section")
-```
 
-```{r}
 for(s in unique(dat$speaker)){
   for(r in unique(dat$ROI)){
     d <- dat |> filter(speaker==s, ROI==r)
     if(nrow(d)<=1){next}
-    c <- tidy(lm(temperature ~ time, d))
+    c <- tidy(lm(temperature ~ timeN, d))
     all[nrow(all)+1,] <- c(s, unique(d$condition), r,
                            ifelse(c$estimate[2] < 0, "negative", "positive"),
                            c$statistic[2],
@@ -203,7 +214,7 @@ for(s in unique(dat$speaker)){
     for(section in c("Lists", "Diapix")){
       d <- dat |> filter(speaker==s, ROI==r, task==section)
       if(nrow(d)==0){next}
-      c <- tidy(lm(temperature ~ time, d))
+      c <- tidy(lm(temperature ~ timeN, d))
       all[nrow(all)+1,] <- c(s, unique(d$condition), r,
                              ifelse(c$estimate[2] < 0, "negative", "positive"),
                              c$statistic[2],
@@ -220,11 +231,13 @@ all <- all |>
            sign == "yes" & direction == "positive" ~ "increase",
            sign == "yes" & direction == "negative" ~ "decrease",
            sign == "ns" ~ "ns",
-         )) |> 
+         ),
+         dyad = substr(speaker, 1, 3)) |> 
   mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
 
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
 all$effect <- relevel(all$effect, ref="ns")
+all$condition <- relevel(all$condition, ref="close")
 
 # # save it
 # indTemp <- all
@@ -252,7 +265,90 @@ ggplot(all, aes(ROI, fill=effect))+
 ```
 
 
-### Questionnaire scores as predictors?
+### New Analysis with `ordinal` package
+
+```{r}
+# library(ordinal)
+# 
+# data <- merge(all |> 
+#                 select(-condition) |> 
+#                 mutate_at(c("sign", "effect"), as.factor),
+#               meta, by="speaker") |> 
+#   mutate_at("condition", as.factor) |> 
+#   pivot_longer(col= c("closeness", "similarity", "likeability", "becomeFriends"),
+#                names_to = "rcitType",
+#                values_to = "rcitRating") |>  
+#   mutate(dyad = substr(speaker, 1, 3),
+#          rcitRatingC = rcitRating - 5)
+# 
+# data$effect <- factor(data$effect,
+#                       levels = c("decrease", "ns", "increase"),
+#                       ordered = TRUE)
+# 
+# data$rcitRating <- factor(data$rcitRating,
+#                           levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+#                           ordered = TRUE)
+```
+
+effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad)
+
+
+##### Lists
+```{r}
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Forehead", section=="Lists")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Nose", section=="Lists")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Eyes", section=="Lists")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Cheeks", section=="Lists")))
+# 
+# 
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Forehead", section=="Lists")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Eyes", section=="Lists")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Nose", section=="Lists")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Cheeks", section=="Lists")))
+```
+
+
+##### Diapix
+
+```{r}
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Forehead", section=="Diapix")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Nose", section=="Diapix")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Eyes", section=="Diapix")))
+# summary(m <- ordinal::clmm(rcitRating ~ effect + (1|speaker) + (1|dyad), data|> filter(ROI=="Cheeks", section=="Diapix")))
+# 
+# 
+# 
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Forehead", section=="Diapix")))
+# 
+# p <- ggeffects::ggpredict(m, terms = c("rcitRatingC")) |>
+#   as_tibble() |> 
+#   mutate()
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Eyes", section=="Diapix")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Nose", section=="Diapix")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1|speaker), data |> filter(ROI=="Cheeks", section=="Diapix")))
+```
+
+##### Entire experiment
+```{r}
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad), data |> filter(ROI=="Forehead", section=="entireExp")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad), data |> filter(ROI=="Eyes", section=="entireExp")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad), data |> filter(ROI=="Nose", section=="entireExp")))
+# 
+# summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad), data |> filter(ROI=="Cheeks", section=="entireExp")))
+```
+
+### "gaussian" regression - questionnaire scores as predictors
+(but logistic for condition ~ effect)
 
 #### First part of experiment (Lists)
 
@@ -265,42 +361,506 @@ d <- merge(all |>
   mutate_at("condition", as.factor)
 ```
 
-```{r}
-# data set for poisson regression
-
-dt <- d |> 
-  group_by(effect, condition, ROI) |> 
-  summarize(count = n()) |> 
-  right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
-  mutate(count = replace_na(count, 0))
-conditionCount <- d |> 
-  group_by(condition, ROI) |> 
-  summarize(condCount = n())
-dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
-
-dt$effect <- relevel(dt$effect, ref="ns")
-# contrasts(dt$condition) <- c(-.5,+.5)
-dt$condition <- relevel(dt$condition, ref="close")
-```
-
-##### All ROIs together
+##### Nose
 
 No condition effect
+
 ```{r}
-ggplot(d, aes(condition, fill=effect))+
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
   geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("All ROIs: Temperature change across conditions (Lists)")+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
   scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
 ```
 
 ```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
+summary(glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
 
-summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
+
+People *increased* their temperature *more often* when they wanted more to *become friends* with their partner. When performing pairwise comparison and adjusting the p value, it became a little over .05 (i.e. .055)
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+##### Eyes
+
+No condition effect
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glm(condition ~ effect, d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+
+##### Forehead
+
+No condition effect
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glm(condition ~ effect, d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+No effect of perception of partner
+```{r}
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+##### Cheeks
+
+More temperature changes (increases and decreases) in the impersonal condition
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+#### Second part of experiment (Diapix)
+
+```{r}
+d <- merge(all |> 
+             filter(section == "Diapix") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+##### Nose
+
+More temperature decreases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+People *decreased* their nose temperature *less often* when they wanted more to *become friends* with their partner.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+Higher extraversion scores -- fewer temperature increases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases and decreases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+Warmer thermal perception -- fewer temperature increases and decreases in the nose. 
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, comfortPost))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+
+##### Eyes
+
+No effect of condition
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+No effect of condition
+```{r}
+summary(m <- glm(condition ~ effect, d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Eyes.
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+
+##### Forehead
+
+More temperature increases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glm(condition ~ effect, d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+Higher closeness -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, closeness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher likeability -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+Higher extraversion scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+
+##### Cheeks
+
+More temperature decreases in the impersonal condition. But the result concerning temperature increases looks weird. I don't know if I trust this model.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+### multinomial regression -- questionnaire scores as predictors
+
+#### First part of experiment (Lists)
+
+```{r}
+d <- merge(all |> 
+             filter(section == "Lists") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor) |> 
+  mutate(closenessC = closeness - mean(closeness, na.rm=TRUE),
+         similarityC = similarity - mean(similarity, na.rm=TRUE),
+         likeabilityC = likeability - mean(likeability, na.rm=TRUE),
+         becomeFriendsC = becomeFriends - mean(becomeFriends, na.rm=TRUE),
+         extraversionC = extraversion - mean(extraversion, na.rm=TRUE),
+         opennessC = openness - mean(openness, na.rm=TRUE),
+         agreeablenessC = agreeableness - mean(agreeableness, na.rm=TRUE),
+         conscientiousnessC = conscientiousness - mean(conscientiousness, na.rm=TRUE),
+         neuroticismC = neuroticism - mean(neuroticism, na.rm=TRUE))
+```
+
+```{r}
+# data set for poisson regression
+
+# dt <- d |> 
+#   group_by(effect, condition, ROI) |> 
+#   summarize(count = n()) |> 
+#   right_join(crossing(effect = unique(d$effect), condition = unique(d$condition), ROI = unique(d$ROI))) |> 
+#   mutate(count = replace_na(count, 0))
+# conditionCount <- d |> 
+#   group_by(condition, ROI) |> 
+#   summarize(condCount = n())
+# dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
+# 
+# dt$effect <- relevel(dt$effect, ref="ns")
+# # contrasts(dt$condition) <- c(-.5,+.5)
+# dt$condition <- relevel(dt$condition, ref="close")
 ```
 
 ##### Nose
@@ -364,6 +924,9 @@ tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Nose"))) |>
 tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+# summary(m <- lm(becomeFriends ~ effect, d |> filter(ROI=="Nose")))
+
 ```
 
 No effect of BFI scores
@@ -651,29 +1214,6 @@ dt$effect <- relevel(dt$effect, ref="ns")
 dt$condition <- relevel(dt$condition, ref="close")
 ```
 
-##### All ROIs together
-
-Overall, there were more temperature *increases* in the *impersonal* condition.
-
-There were also *fewer* non-effects in the *impersonal* condition.
-
-```{r}
-ggplot(d, aes(condition, fill=effect))+
-  geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("All ROIs: Temperature change across conditions (Diapix)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-
-summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
-```
-
 ##### Nose
 
 ```{r}
@@ -811,6 +1351,8 @@ tidy(m <- nnet::multinom(effect ~ similarity, data=d |> filter(ROI=="Eyes"))) |>
 tidy(m <- nnet::multinom(effect ~ likeability, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
   mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
+
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
 ```
 
 Eye temperature *increased less often* when the speaker scored higher on agreeableness.
@@ -1048,29 +1590,6 @@ dt <- merge(dt, conditionCount, by=c("condition", "ROI"))
 dt$effect <- relevel(dt$effect, ref="ns")
 contrasts(dt$condition) <- c(-.5,+.5)
 ```
-
-##### All ROIs together
-
-* With all ROIs taken together, there were overall more changes in the impersonal condition, both increases and decreases.
-
-```{r}
-ggplot(d, aes(condition, fill=effect))+
-  geom_bar()+
-  # facet_wrap(~condition)+
-  ggtitle("All ROIs: Temperature change across conditions (entire exp)")+
-  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
-```
-
-No significant effect of condition, but almost
-```{r}
-tidy(m <- nnet::multinom(effect ~ condition, data=d)) |> 
-  as_tibble() |> 
-  mutate(estimate = plogis(estimate)) # plogis transforms log odds (the output of the model) into probabilities
-emmeans(m, pairwise~condition, by="effect")
-
-summary(m <- glmer(sign ~ condition + (1|speaker), d, family=binomial))
-```
-
 
 ##### Nose
 
@@ -1381,21 +1900,31 @@ tidy(m <- nnet::multinom(effect ~ comfortPost, data=d |> filter(ROI=="Cheeks")))
 
 Nose got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time : roomTemp + (time||speaker)`
+Preferred model: `temperature ~ timeN : roomTemp + (timeN||speaker)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Nose"), aes(time, temperature))+
-  geom_point()+
+ggplot(dat |> filter(ROI=="Nose"), aes(timeN, temperature))+
+  geom_point(aes(color=speaker))+
+  geom_line(aes(group=speaker, color=speaker))+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker) , dat |> filter(ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker) , dat |> filter(ROI=="Nose")))
 
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker) , dat |> filter(ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker) , dat |> filter(ROI=="Nose")))
 
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker) , dat |> filter(ROI=="Nose")))
+
+summary(m1 <- lmer(temperature ~ timeN + (timeN||speaker) + (1|dyad), dat |> filter(ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : closeness  + (timeN||speaker) + (1|dyad), dat |> filter(ROI=="Nose")))
+
+# a <- broom.mixed::tidy(m2, effects="ran_vals", conf.int=TRUE) |> 
+#   filter(group=="speaker") |> 
+#   mutate(estimate = estimate + 32.484731)
+# coef(m2)
+# lattice::dotplot(ranef(m1))["speaker"]
+
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1403,26 +1932,31 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1|speaker), dat |> filter(ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1|speaker), dat |> filter(ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
 
 anova(m0, m1)
 anova(m0, m2)
 anova(m0, m3)
 anova(m0, m4)
+
+ggplot(dat |> filter(ROI=="Nose"), aes(x=timeN, y=temperature))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~as.factor(likeability))
 ```
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(ROI=="Nose")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN : neuroticism + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN : extraversion + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN : agreeableness + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN : openness + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
+summary(m5 <- lmer(temperature ~ timeN : conscientiousness + (1+timeN|speaker), dat |> filter(ROI=="Nose")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1435,19 +1969,19 @@ anova(m0, m5)
 
 Forehead got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Forehead"), aes(time, temperature))+
+ggplot(dat |> filter(ROI=="Forehead"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(ROI=="Forehead"))) # but failed to converge
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(ROI=="Forehead"))) # but failed to converge
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1455,11 +1989,11 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN : closeness + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN : similarity + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN : likeability + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN : becomeFriends + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1469,12 +2003,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(ROI=="Forehead")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN : neuroticism + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN : extraversion + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN : agreeableness + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN : openness + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
+summary(m5 <- lmer(temperature ~ timeN : conscientiousness + (1+timeN|speaker), dat |> filter(ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1487,20 +2021,20 @@ anova(m0, m5)
 
 Eyes got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + (time||speaker)`
+Preferred model: `temperature ~ timeN + (timeN||speaker)`
 
 
 ```{r}
-ggplot(dat |> filter(ROI=="Eyes"), aes(time, temperature))+
+ggplot(dat |> filter(ROI=="Eyes"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker), dat |> filter(ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : condition + (time||speaker), dat |> filter(ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker), dat |> filter(ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN : condition + (timeN||speaker), dat |> filter(ROI=="Eyes")))
 
 anova(m0, m1) # this time the model without `roomTemp` was preferred
 anova(m0, m2)
@@ -1508,11 +2042,11 @@ anova(m0, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN : closeness + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN : similarity + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN : likeability + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN : becomeFriends + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1522,12 +2056,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(ROI=="Eyes")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN : neuroticism + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN : extraversion + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN : agreeableness + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN : openness + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
+summary(m5 <- lmer(temperature ~ timeN : conscientiousness + (1+timeN|speaker), dat |> filter(ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1540,19 +2074,19 @@ anova(m0, m5)
 
 Cheeks did not change temperature.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Cheeks"), aes(time, temperature))+
+ggplot(dat |> filter(ROI=="Cheeks"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1560,11 +2094,11 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN : closeness + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN : similarity + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN : likeability + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN : becomeFriends + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1574,12 +2108,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN : neuroticism + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN : extraversion + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN : agreeableness + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN : openness + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
+summary(m5 <- lmer(temperature ~ timeN : conscientiousness + (1+timeN|speaker), dat |> filter(ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1594,21 +2128,21 @@ anova(m0, m5)
 
 Nose got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time : roomTemp + (time||speaker)`
+Preferred model: `temperature ~ timeN : roomTemp + (timeN||speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Lists", ROI=="Nose"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Lists", ROI=="Nose"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
 
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
 
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (timeN||speaker) , dat |> filter(task=="Lists", ROI=="Nose")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1616,11 +2150,11 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : closeness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : similarity + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : likeability + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : becomeFriends + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1630,15 +2164,15 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : neuroticism + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : extraversion + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : agreeableness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : openness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
-summary(m5 <- lmer(temperature ~ roomTemp + time : conscientiousness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Nose")))
 
 anova(m0, m1)
-anova(m0, m2)
+anova(m0, m2) #!
 anova(m0, m3)
 anova(m0, m4)
 anova(m0, m5)
@@ -1648,19 +2182,19 @@ anova(m0, m5)
 
 Forehead got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Lists", ROI=="Forehead"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Lists", ROI=="Forehead"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1668,11 +2202,11 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : closeness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : similarity + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : likeability + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : becomeFriends + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1682,12 +2216,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : neuroticism + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : extraversion + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : agreeableness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : openness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
-summary(m5 <- lmer(temperature ~ roomTemp + time : conscientiousness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1700,32 +2234,32 @@ anova(m0, m5)
 
 Eyes got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + (time||speaker)`
+Preferred model: `temperature ~ timeN + (timeN||speaker)`
 
 
 ```{r}
-ggplot(dat |> filter(task=="Lists", ROI=="Eyes"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Lists", ROI=="Eyes"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : condition + (time||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN : condition + (timeN||speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
 
-anova(m0, m1) # this time the model without `roomTemp` was preferred
+anova(m0, m1) # this timeN the model without `roomTemp` was preferred
 anova(m0, m2)
 ```
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : closeness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : similarity + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : likeability + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : becomeFriends + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1735,12 +2269,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : neuroticism + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : extraversion + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : agreeableness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : openness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
-summary(m5 <- lmer(temperature ~ roomTemp + time : conscientiousness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1753,19 +2287,19 @@ anova(m0, m5)
 
 Cheeks did not change temperature.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Lists", ROI=="Cheeks"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Lists", ROI=="Cheeks"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1773,26 +2307,26 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : closeness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : similarity + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : likeability + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : becomeFriends + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
-anova(m0, m3)
+anova(m0, m3) #!
 anova(m0, m4)
 ```
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ roomTemp + time : neuroticism + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ roomTemp + time : extraversion + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ roomTemp + time : agreeableness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ roomTemp + time : openness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
-summary(m5 <- lmer(temperature ~ roomTemp + time : conscientiousness + (1+time|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task=="Lists", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1808,21 +2342,21 @@ anova(m0, m5)
 
 Nose got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time : roomTemp + (time||speaker)`
+Preferred model: `temperature ~ timeN : roomTemp + (timeN||speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix", ROI=="Nose"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Diapix", ROI=="Nose"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
 
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
 
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (time||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (timeN||speaker) , dat |> filter(task=="Diapix", ROI=="Nose")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1830,11 +2364,12 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1844,12 +2379,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m4 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Nose")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1862,19 +2397,19 @@ anova(m0, m5)
 
 Forehead got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix", ROI=="Forehead"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Diapix", ROI=="Forehead"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1882,64 +2417,64 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time : closeness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : similarity + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ time : likeability + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
 
 anova(m0, m1)
-anova(m0, m2)
-anova(m0, m3)
+anova(m0, m2) #!
+anova(m0, m3) #!
 anova(m0, m4)
 ```
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m4 <- lmer(temperature ~ time : openness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Forehead")))
 
 anova(m0, m1)
-anova(m0, m2)
+anova(m0, m2) #!
 anova(m0, m3)
-anova(m0, m4)
-anova(m0, m5)
+anova(m0, m4) #!
+anova(m0, m5) #!
 ```
 
 ##### Eyes
 
 Eyes got warmer across time, no difference between conditions.
 
-Preferred model: `temperature ~ time + (time||speaker)`
+Preferred model: `temperature ~ timeN + (timeN||speaker)`
 
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix", ROI=="Eyes"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Diapix", ROI=="Eyes"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : condition + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN : condition + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
 
-anova(m0, m1) # this time the model without `roomTemp` was preferred
+anova(m0, m1) # this timeN the model without `roomTemp` was preferred
 anova(m0, m2)
 ```
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time : closeness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : similarity + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ time : likeability + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -1949,16 +2484,16 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m4 <- lmer(temperature ~ time : openness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Eyes")))
 
 anova(m0, m1)
 anova(m0, m2)
-anova(m0, m3)
+anova(m0, m3) #!
 anova(m0, m4)
 anova(m0, m5)
 ```
@@ -1967,19 +2502,19 @@ anova(m0, m5)
 
 Cheeks did not change temperature.
 
-Preferred model: `temperature ~ time + roomTemp + (1+time|speaker)`
+Preferred model: `temperature ~ timeN + roomTemp + (1+timeN|speaker)`
 
 ```{r}
-ggplot(dat |> filter(task=="Diapix", ROI=="Cheeks"), aes(time, temperature))+
+ggplot(dat |> filter(task=="Diapix", ROI=="Cheeks"), aes(timeN, temperature))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time + roomTemp + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : condition + roomTemp + (1+time|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + roomTemp + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN : condition + roomTemp + (1+timeN|speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m1, m2)
@@ -1987,11 +2522,11 @@ anova(m1, m2)
 
 No effect of perception of partner
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time : closeness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : similarity + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ time : likeability + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ time : becomeFriends + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : closeness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : similarity + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : likeability + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : becomeFriends + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -2001,12 +2536,12 @@ anova(m0, m4)
 
 No effect of BFI scores
 ```{r}
-summary(m0 <- lmer(temperature ~ time + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m1 <- lmer(temperature ~ time : neuroticism + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m2 <- lmer(temperature ~ time : extraversion + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m3 <- lmer(temperature ~ time : agreeableness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m4 <- lmer(temperature ~ time : openness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
-summary(m5 <- lmer(temperature ~ time : conscientiousness + (time||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m0 <- lmer(temperature ~ timeN + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m2 <- lmer(temperature ~ timeN + timeN : extraversion + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m3 <- lmer(temperature ~ timeN + timeN : agreeableness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m4 <- lmer(temperature ~ timeN + timeN : openness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
+summary(m5 <- lmer(temperature ~ timeN + timeN : conscientiousness + (timeN||speaker), dat |> filter(task=="Diapix", ROI=="Cheeks")))
 
 anova(m0, m1)
 anova(m0, m2)
@@ -2015,132 +2550,157 @@ anova(m0, m4)
 anova(m0, m5)
 ```
 
+#### All analyses in one loop
 
 ```{r}
-eff <- data.frame(matrix(nrow=0, ncol=8))
-names(eff) <- names(c("section", "ROI", "roomTemp", "item", "estimate", "SE", "t", "p"))
+eff <- data.frame(matrix(nrow=0, ncol=9))
+names(eff) <- c("section", "ROI", "roomTemp", "smallerAIC", "item",  "estimate", "SE", "t", "p")
 
 for(s in unique(dat$task)){
   for(r in unique(dat$ROI)){
     
     # without roomTemp
     
-    c <- broom.mixed::tidy(m <- lmer(temperature ~ time + (1+time|speaker), dat |> filter(task==s, ROI==r)))
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : closeness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    c <- broom.mixed::tidy(m <- lmer(temperature ~ timeN + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : closeness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "closeness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : similarity + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without",
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "closeness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : similarity + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "similarity",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : likeability + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "similarity",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : likeability + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "likeability",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : becomeFriends + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "likeability",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "becomeFriends",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : neuroticism + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "becomeFriends",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "neuroticism",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : extraversion + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "neuroticism",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : extraversion + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "extraversion",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : agreeableness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "extraversion",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "agreeableness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : openness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "agreeableness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : openness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "openness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ time : conscientiousness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "without",
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "openness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "without", "conscientiousness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
+    eff[nrow(eff)+1,] <- c(s, r, "without", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "conscientiousness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
     
     # with roomTemp
     
-    c <- broom.mixed::tidy(m <- lmer(temperature ~ roomTemp + time + (1+time|speaker), dat |> filter(task==s, ROI==r)))
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : closeness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    c <- broom.mixed::tidy(m <- lmer(temperature ~ roomTemp + timeN + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : closeness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "closeness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : similarity + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "closeness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : similarity + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "similarity",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : likeability + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "similarity",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : likeability + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "likeability",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : becomeFriends + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "likeability",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : becomeFriends + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "becomeFriends",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : neuroticism + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "becomeFriends",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : neuroticism + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "neuroticism",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : extraversion + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "neuroticism",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : extraversion + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "extraversion",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : agreeableness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "extraversion",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : agreeableness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "agreeableness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : openness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "agreeableness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : openness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "openness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
-    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ roomTemp + time : conscientiousness + (1+time|speaker), dat |> filter(task==s, ROI==r)))
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "openness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
+    
+    c1 <- broom.mixed::tidy(m1 <- lmer(temperature ~ timeN + roomTemp + timeN : conscientiousness + (1+timeN|speaker), dat |> filter(task==s, ROI==r)))
     a <- anova(m, m1)
-    if(a$AIC[2] - a$AIC[1] <= -2){
-      eff[nrow(eff)+1,] <- c(s, r, "with", "conscientiousness",
-                             c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
-    }
+    eff[nrow(eff)+1,] <- c(s, r, "with", 
+                           ifelse(a$AIC[2] - a$AIC[1] <= -2, "yes", "no"),
+                           "conscientiousness",
+                           c1$estimate[2], c1$std.error[2], c1$statistic[2], c1$p.value[2])
   }
 }
-print(eff)
+
+d <- eff |> 
+  mutate_at(c("estimate", "SE", "t", "p"), as.numeric) |> 
+  mutate_at(c("section", "ROI", "roomTemp", "smallerAIC", "item"), as.factor)|> 
+  filter(smallerAIC == "yes",
+         p < 0.05) |>
+  mutate(pCorrected = p * nrow(eff),
+         stillSign = ifelse(pCorrected < 0.05, "*", "ns"))
 ```
 
 
@@ -2571,7 +3131,7 @@ for(d in unique(dat$dyad)){
       filter(speaker==paste0(d, "-A"), ROI==r)
     if(nrow(dd)<=1){next}
     if(all(is.na(dd$tempDiff))){next}
-    c <- tidy(lm(tempDiff ~ time, dd))
+    c <- tidy(lm(tempDiff ~ timeN, dd))
     all[nrow(all)+1,] <- c(d, unique(dd$condition[dd$dyad==d]), r,
                            ifelse(c$estimate[2] < 0, "convergence", "divergence"),
                            c$statistic[2],
@@ -2582,7 +3142,7 @@ for(d in unique(dat$dyad)){
         filter(speaker==paste0(d, "-A"), ROI==r, task==section)
       if(nrow(dd)<=1){next}
       if(all(is.na(dd$tempDiff))){next}
-      c <- tidy(lm(tempDiff ~ time, dd))
+      c <- tidy(lm(tempDiff ~ timeN, dd))
       all[nrow(all)+1,] <- c(d, unique(dd$condition[dd$dyad==d]), r,
                              ifelse(c$estimate[2] < 0, "convergence", "divergence"),
                              c$statistic[2],
@@ -2928,18 +3488,18 @@ emmeans(m, pairwise~condition, by="effect")
 
 No con-/divergence in nose temperature.
 
-Preferred model: `tempDiff ~ time + (1+time|dyad)`
+Preferred model: `tempDiff ~ timeN + (1+timeN|dyad)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Nose"), aes(time, tempDiff))+
+ggplot(dat |> filter(ROI=="Nose"), aes(timeN, tempDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
-summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
+summary(m0 <- lmer(tempDiff ~ timeN + (1+timeN|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ timeN : condition + (1+timeN|dyad), dat |> filter(ROI=="Nose", grepl("-A", speaker))))
 
 anova(m0, m1)
 ```
@@ -2948,18 +3508,18 @@ anova(m0, m1)
 
 No con-/divergence in forehead temperature.
 
-Preferred model: `tempDiff ~ time + (1+time|dyad)`
+Preferred model: `tempDiff ~ timeN + (1+timeN|dyad)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Forehead"), aes(time, tempDiff))+
+ggplot(dat |> filter(ROI=="Forehead"), aes(timeN, tempDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
-summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
+summary(m0 <- lmer(tempDiff ~ timeN + (1+timeN|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ timeN : condition + (1+timeN|dyad), dat |> filter(ROI=="Forehead", grepl("-A", speaker))))
 
 anova(m0, m1)
 ```
@@ -2968,18 +3528,18 @@ anova(m0, m1)
 
 No con-/divergence in eye temperature.
 
-Preferred model: `tempDiff ~ time + (1+time|dyad)`
+Preferred model: `tempDiff ~ timeN + (1+timeN|dyad)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Eyes"), aes(time, tempDiff))+
+ggplot(dat |> filter(ROI=="Eyes"), aes(timeN, tempDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
-summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
+summary(m0 <- lmer(tempDiff ~ timeN + (1+timeN|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ timeN : condition + (1+timeN|dyad), dat |> filter(ROI=="Eyes", grepl("-A", speaker))))
 
 anova(m0, m1)
 ```
@@ -2988,18 +3548,18 @@ anova(m0, m1)
 
 No con-/divergence in cheek temperature.
 
-Preferred model: `tempDiff ~ time + (1+time|dyad)`
+Preferred model: `tempDiff ~ timeN + (1+timeN|dyad)`
 
 ```{r}
-ggplot(dat |> filter(ROI=="Cheeks"), aes(time, tempDiff))+
+ggplot(dat |> filter(ROI=="Cheeks"), aes(timeN, tempDiff))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~condition)
 ```
 
 ```{r}
-summary(m0 <- lmer(tempDiff ~ time + (1+time|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
-summary(m1 <- lmer(tempDiff ~ time : condition + (1+time|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
+summary(m0 <- lmer(tempDiff ~ timeN + (1+timeN|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
+summary(m1 <- lmer(tempDiff ~ timeN : condition + (1+timeN|dyad), dat |> filter(ROI=="Cheeks", grepl("-A", speaker))))
 
 anova(m0, m1)
 ```

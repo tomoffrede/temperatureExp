@@ -129,7 +129,8 @@ theme_set(theme_minimal()+
 # thermal comfort
 
 (p1 <- ggplot(meta, aes(condition, comfortPre))+
-   geom_boxplot(size=1)+
+   geom_boxplot(width=0.15, fatten = NULL, size=1)+
+   ggdist::stat_halfeye(adjust = .8,  width = .7, justification = -.2, .width = c(.5, .95))+
    # ggdist::stat_halfeye(adjust = .7,  width = .5, justification = -.15, .width = c(.5, .95))+
    labs(title="Before Interaction", y="Thermal Comfort", x=NULL)+
    theme(plot.title = element_text(size=12))+
@@ -137,7 +138,8 @@ theme_set(theme_minimal()+
    ylim(c(3.5,9)))
 
 (p2 <- ggplot(meta, aes(condition, comfortPost))+
-    geom_boxplot(size=1)+
+    geom_boxplot(width=0.15, fatten = NULL, size=1)+
+    ggdist::stat_halfeye(adjust = .8,  width = .7, justification = -.2, .width = c(.5, .95))+
     geom_signif(comparisons = list(c("close", "impersonal")),
                 annotations = c("*"),
                 y=8.5, textsize=6, size=1)+
@@ -158,28 +160,27 @@ ggsave(paste0(folderFig, "thermalComfort.png"), dpi="retina", height = 1150, wid
 # Questionnaire items
 
 (i1 <- ggplot(meta, aes(condition, closeness))+
-   geom_boxplot(size=1)+
+   geom_boxplot(width=0.15, fatten = NULL, size=1)+
+   ggdist::stat_halfeye(adjust = .8,  width = .7, justification = -.2, .width = c(.5, .95))+
    geom_signif(comparisons = list(c("close", "impersonal")),
                annotations = c("*"),
                y=8.3, textsize=6, size=1)+
    labs(title="Closeness", y="Self-Rating", x=NULL)+
-   theme(plot.title = element_text(size=12))+
    scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
    ylim(c(1,9)))
 
 (i2 <- ggplot(meta, aes(condition, likeability))+
-    geom_boxplot(size=1)+
+    geom_boxplot(width=0.15, fatten = NULL, size=1)+
+    ggdist::stat_halfeye(adjust = .8,  width = .7, justification = -.2, .width = c(.5, .95))+
     geom_signif(comparisons = list(c("close", "impersonal")),
                 annotations = c("*"),
                 y=2.5, textsize=6, size=1,
                 vjust=2, tip_length = -0.03)+
     labs(title="Degree of Liking", y=NULL, x=NULL)+
-    theme(plot.title = element_text(size=12))+
     scale_x_discrete(labels=c("close"="Personal", "impersonal"="Impersonal"))+
     ylim(c(1,9)))
 
 annotate_figure(ggarrange(i1, i2),
-                top=text_grob("Perception of Partner", size=14),
                 bottom = text_grob("Conditon", size=12))
 ggsave(paste0(folderFig, "questionnaire.png"), dpi="retina", height = 1150, width=1700, units = "px")
 
@@ -226,7 +227,9 @@ d <- merge(all |>
 # Nose-becomeFriends
 
 (n <- ggplot(d |> filter(ROI=="Nose", section=="Lists"), aes(effect, becomeFriends))+
-   geom_boxplot(size=1, color=colorN)+
+   geom_boxplot(width=0.15, fatten = NULL, color=colorN, size=1)+
+   ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95),
+                        color=colorN)+
    geom_signif(comparisons = list(c("ns", "increase")),
                annotations = c("*"),
                textsize=6, size=1,
@@ -248,15 +251,17 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1200, widt
 # Social Emotion - Diapix section
 
 # Nose-becomeFriends
-# Eyes-closeness
+# Forehead-closeness
 # Forehead-likeability
 
 (n <- ggplot(d |> filter(ROI=="Nose", section=="Diapix"), aes(effect, becomeFriends))+
-   geom_boxplot(size=1, color=colorN)+
+   geom_boxplot(width=0.15, fatten = NULL, color=colorN, size=1)+
+   ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95),
+                        color=colorN)+
    geom_signif(comparisons = list(c("ns", "decrease")),
                annotations = c("*"),
                textsize=6, size=1,
-               y=9.3)+
+               y=9.1)+
    labs(title="Nose", y = "Likelihood of friendship", x=NULL)+
    scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
    scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
@@ -267,24 +272,28 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1200, widt
          axis.text.y = element_text(size=12))
 ) 
 
-(e <- ggplot(d |> filter(ROI=="Eyes", section=="Diapix"), aes(effect, closeness))+
-    geom_boxplot(size=1, color=colorE)+
+(f1 <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, closeness))+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorF, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95),
+                         color=colorF)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=6, size=1,
                 y=8.4)+
-    labs(title="Eyes", y = "Closeness", x=NULL)+
+    labs(title="Forehead", y = "Closeness", x=NULL)+
     scale_y_continuous(limits=c(1,10), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
-    scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
-    theme(plot.title = element_text(color=colorE, size=18),
+    # scale_color_manual(values = c("decrease" = "cadetblue3", "increase" = "red", "ns" = "honeydew4"))+
+    theme(plot.title = element_text(color=colorF, size=18),
           axis.title = element_text(size=16),
           axis.text.x = element_text(size=16),
           axis.text.y = element_text(size=12))
 )
 
-(f <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, likeability))+
-    geom_boxplot(size=1, color=colorF)+
+(f2 <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, likeability))+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorF, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95),
+                         color=colorF)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=6, size=1,
@@ -299,11 +308,13 @@ ggsave(paste0(folderFig, "emotion-lists.png"), dpi="retina", height = 1200, widt
           axis.text.y = element_text(size=12))
 )
 
-p <- cowplot::ggdraw(cowplot::plot_grid(cowplot::plot_grid(NULL, f, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
-                   cowplot::plot_grid(n, e, ncol=2),
-                   ncol=1))
+# p <- cowplot::ggdraw(cowplot::plot_grid(cowplot::plot_grid(NULL, f, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
+#                    cowplot::plot_grid(n, e, ncol=2),
+#                    ncol=1))
 
-annotate_figure(p,
+annotate_figure(ggarrange(ggarrange(f1,f2),
+                cowplot::plot_grid(NULL, n, NULL, ncol=3, rel_widths = c(0.25,0.5,0.25)),
+                nrow=2),
                 top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and emotion"), size=18),
                 bottom=text_grob("Temperature change", size=16))
 ggsave(paste0(folderFig, "emotion-diapix.png"), dpi="retina", height = 2000, width=3000, units = "px")
@@ -314,7 +325,9 @@ ggsave(paste0(folderFig, "emotion-diapix.png"), dpi="retina", height = 2000, wid
 # Cheeks-agreeableness
 
 (c <- ggplot(d |> filter(ROI=="Cheeks", section=="Lists"), aes(effect, agreeableness))+
-   geom_boxplot(size=1, color=colorC)+
+   geom_boxplot(width=0.15, fatten = NULL, color=colorC, size=1)+
+   ggdist::stat_halfeye(adjust = .6,  width = .7, justification = -.2, .width = c(.5, .95),
+                        color=colorC)+
    geom_signif(comparisons = list(c("ns", "increase")),
                annotations = c("*"),
                textsize=6, size=1,
@@ -338,11 +351,14 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
 # Nose-openness
 # Forehead-openness
 
+
 # Eyes-agreeableness
 # Cheeks-agreeableness
 
 (n1 <- ggplot(d |> filter(ROI=="Nose", section=="Diapix"), aes(effect, extraversion))+
-   geom_boxplot(size=1.5, color=colorN)+
+   geom_boxplot(width=0.15, fatten = NULL, color=colorN, size=1)+
+   ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+                        color=colorN)+
    geom_signif(comparisons = list(c("ns", "increase")),
                annotations = c("*"),
                textsize=9, size=1,
@@ -353,46 +369,58 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
    theme(legend.position="none",
          plot.title = element_text(color=colorN, size=20),
          axis.title = element_text(size=18),
-         axis.text.x = element_text(size=18))
+         axis.text.x = element_text(size=18),
+         axis.text.y = element_blank())
 )
 
 (f1 <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, extraversion))+
-    geom_boxplot(size=1.5, color=colorF)+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorF, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+                         color=colorF)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Forehead", y = "Score", x=NULL)+
+    labs(title="Forehead", y = "Extraversion", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
           plot.title = element_text(color=colorF, size=20),
-          axis.title = element_text(size=18),
-          axis.text.x = element_text(size=18))
+          axis.title.x = element_text(size=18),
+          axis.title.y = element_text(size=20),
+          axis.text.x = element_text(size=18),
+          axis.text.y = element_text(size=14))
 )
 
 (n2 <- ggplot(d |> filter(ROI=="Nose", section=="Diapix"), aes(effect, openness))+
-    geom_boxplot(size=1.5, color=colorN)+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorN, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+                         color=colorN)+
     geom_signif(comparisons = list(c("ns", "decrease"), c("ns", "increase")),
                 annotations = c("*", "**"),
-                textsize=9, size=1,
-                y=c(5.1, 5.6))+
+                textsize=9, size=1#,
+                #y=c(5.1, 5.6)
+    )+
     labs(title="Nose", y = NULL, x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
           plot.title = element_text(color=colorN, size=20),
-          axis.title = element_text(size=18),
-          axis.text.x = element_text(size=18))
+          axis.title.x = element_text(size=18),
+          axis.title.y = element_text(size=20),
+          axis.text.x = element_text(size=18),
+          axis.text.y = element_text(size=14))
 )
 
 (f2 <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, openness))+
-    geom_boxplot(size=1.5, color=colorF)+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorF, size=1)+
+ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+color=colorF)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5.35)+
-    labs(title="Forehead", y = "Score", x=NULL)+
+    labs(title="Forehead", y = "Openness", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
@@ -402,39 +430,46 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
 )
 
 (e <- ggplot(d |> filter(ROI=="Eyes", section=="Diapix"), aes(effect, agreeableness))+
-    geom_boxplot(size=1.5, color=colorE)+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorE, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+                         color=colorE)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Eyes", y = "Score", x="Temperature change")+
+    labs(title="Eyes", y = "Agreeableness", x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
           plot.title = element_text(color=colorE, size=20),
-          axis.title = element_text(size=18),
-          axis.text.x = element_text(size=18))
+          axis.title.x = element_text(size=18),
+          axis.title.y = element_text(size=20),
+          axis.text.x = element_text(size=18),
+          axis.text.y = element_text(size=14))
 )
 
 (c <- ggplot(d |> filter(ROI=="Cheeks", section=="Diapix"), aes(effect, agreeableness))+
-    geom_boxplot(size=1.5, color=colorC)+
+    geom_boxplot(width=0.15, fatten = NULL, color=colorC, size=1)+
+    ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+                         color=colorC)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
                 textsize=9, size=1,
                 y=5)+
-    labs(title="Cheeks", y = NULL, x="Temperature change")+
+    labs(title="Cheeks", y = NULL, x=NULL)+
     scale_y_continuous(limits=c(1,6), breaks=c(2, 4, 6, 8))+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
           plot.title = element_text(color=colorC, size=20),
           axis.title = element_text(size=18),
-          axis.text.x = element_text(size=18))
+          axis.text.x = element_text(size=18),
+          axis.text.y = element_blank())
 )
 
-ggarrange(annotate_figure(ggarrange(f1,n1), top=text_grob("Extraversion", size=20)),
-          annotate_figure(ggarrange(f2,n2), top=text_grob("Openness", size=20)),
-          annotate_figure(ggarrange(e,c), top=text_grob("Agreeableness", size=20)),
-          nrow=3)
+annotate_figure(ggarrange(ggarrange(f1,n1),
+                          ggarrange(f2,n2),
+                          ggarrange(e,c),
+                          nrow=3), bottom=text_grob("Temperature change", size=18))
 ggsave(paste0(folderFig, "bfi-diapix.png"), dpi="retina", height = 5000, width=3000, units = "px")
 ############################################################
 

@@ -27,7 +27,7 @@ for(f in files){
       next
     }
   }
-    
+  
   timeControl[nrow(timeControl)+1,] <- c(substr(f, 1, 3), timeStamp)
   if(substr(f, 1, 3) %in% onlyDiapix){
     task <- "Diapix"
@@ -187,13 +187,22 @@ for(s in unique(dat$speaker)){
   }
 }
 
-dat <- merge(dat, m, by=c("speaker", "stage")) |> 
+currentDatSav <- dat
+
+dat <- merge(currentDatSav, m, by=c("speaker", "stage")) |> 
   group_by(speaker, ROI) |> # z-score temperature
   mutate(tempz = (temperature - mean(temperature, na.rm=TRUE)) / sd(temperature, na.rm=TRUE)) |> 
-  ungroup()
+  ungroup() |> 
+  mutate(timeN = ifelse(
+    speaker %in% c("AML-A", "AML-B", "FWR-A", "FWR-B"),
+    ((time - min(time, na.rm=TRUE)) / (max(time, na.rm=TRUE) - min(time, na.rm=TRUE))) + 0.5,
+    (time - min(time, na.rm=TRUE)) / (max(time, na.rm=TRUE) - min(time, na.rm=TRUE))
+  ),
+  roomTempC = roomTemp - median(roomTemp, na.rm=TRUE))
+
+
 datChange <- merge(datChange, m |> select(-c(stage, roomTemp)) |> filter(!duplicated(speaker)), by="speaker") |> 
   mutate_at(c("tempChangeLists", "tempChangeDiapix", "tempChangeEntireExp"), as.numeric)
-  
 
 save(dat, file=paste0(here::here(), "/data/tempData.RData"))
 save(datChange, file=paste0(here::here(), "/data/tempDataChange.RData"))

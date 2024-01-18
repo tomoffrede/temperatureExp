@@ -15,6 +15,9 @@ library(lmerTest)
 
 folderData <- "C:/Users/offredet/Documents/1HU/ExperimentTemperature/temperatureExp/data/"
 load(paste0(folderData, "metadata-clean.RData"))
+
+m <- m |> 
+  mutate(dyad = substr(speaker, 1, 3))
 ```
 
 # Summary of results
@@ -88,7 +91,7 @@ names(m)
 
 ### Thermal Comfort
 
-People found the room warmer after the interaction in the Close condition (p = 0.02, already accounting for the room temperature). Before the interaction, there was no condition difference, and the only significant predictor of thermal comfort/perception was the real room temperature.
+At the start of the experiment, i.e. before the interaction between the participants, there was no difference between groups in thermal comfort. At the end of the experiment, there may have been an effect (see plot and model `r1`) but not statistically significant.
 
 ```{r, echo=FALSE}
 ggplot(m, aes(condition, comfortPre))+ 
@@ -111,20 +114,22 @@ ggplot(m, aes(realTempPost, comfortPost))+
 ```
 
 ```{r}
-summary(r <- lm(comfortPre ~ condition, m))
+summary(r <- lmer(comfortPre ~ condition + (1|dyad), m))
 AIC(r)
-summary(r0 <- lm(comfortPre ~ realTempPre, m)) # preferred model!
+summary(r0 <- lmer(comfortPre ~ realTempPre + (1|dyad), m)) # preferred model!
 AIC(r0)
-summary(r1 <- lm(comfortPre ~ realTempPre + condition, m))
+summary(r1 <- lmer(comfortPre ~ realTempPre + condition + (1|dyad), m))
 AIC(r1)
 
 
-summary(r <- lm(comfortPost ~ condition, m))
+summary(r <- lmer(comfortPost ~ condition + (1|dyad), m)) # preferred model, but no effect
 AIC(r)
-summary(r0 <- lm(comfortPost ~ realTempPost, m))
+summary(r0 <- lmer(comfortPost ~ realTempPost + (1|dyad), m))
 AIC(r0)
-summary(r1 <- lm(comfortPost ~ realTempPost + condition, m)) # preferred model!
+summary(r1 <- lmer(comfortPost ~ realTempPost + condition + (1|dyad), m))
 AIC(r1)
+
+# AIC comparison of the last three models seems to favor the model only with condition as a predictor, but in this model the effect wasn't significant.
 ```
 
 #### Thermal comfort & questionnaire scores

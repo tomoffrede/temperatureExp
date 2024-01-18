@@ -64,7 +64,8 @@ all <- all |>
            sign == "yes" & direction == "positive" ~ "increase",
            sign == "yes" & direction == "negative" ~ "decrease",
            sign == "ns" ~ "ns",
-         )) |> 
+         ),
+         dyad=substr(speaker, 1, 3)) |> 
   mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
 
 all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
@@ -123,7 +124,10 @@ ggsave(paste0(here::here(), "/figures/forMeeting/noseFriendsLists.png"))
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
+
+summary(lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
 temp <- d |> filter(ROI=="Nose")
 m <- multinom(effect ~ becomeFriendsC, data=temp, model=TRUE)
 lmtest::lrtest(m)
@@ -149,7 +153,7 @@ ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Cheeks")
 m <- multinom(effect ~ agreeablenessC, data=temp, model=TRUE)
@@ -189,7 +193,7 @@ ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Nose")
 m <- multinom(effect ~ becomeFriendsC, data=temp, model=TRUE)
@@ -206,11 +210,12 @@ ggplot(d |> filter(ROI=="Nose"), aes(effect, extraversion))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Nose")
-m <- nnet::multinom(effect ~ extraversionC, data=temp)
+m <- multinom(effect ~ extraversionC, data=temp, model=TRUE)
 lmtest::lrtest(m)
+DescTools::PseudoR2(m, which = "Nagelkerke")
 ```
 
 Nose temperature tended to *change less often* (both directions) when the person scored higher on *openness*. But only the p value of the temperature *increases* stayed significant after adjustment. This was confirmed by the likelihood ratio test.
@@ -222,7 +227,7 @@ ggplot(d |> filter(ROI=="Nose"), aes(effect, openness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Nose")
 m <- multinom(effect ~ opennessC, data=temp, model=TRUE)
@@ -241,7 +246,7 @@ ggplot(d |> filter(ROI=="Eyes"), aes(effect, closeness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Eyes")
 m <- multinom(effect ~ closenessC, data=temp, model=TRUE)
@@ -258,11 +263,12 @@ ggplot(d |> filter(ROI=="Eyes"), aes(effect, agreeableness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Eyes")
-m <- nnet::multinom(effect ~ agreeablenessC, data=temp, model=TRUE)
+m <- multinom(effect ~ agreeablenessC, data=temp, model=TRUE)
 lmtest::lrtest(m)
+DescTools::PseudoR2(m, which = "Nagelkerke")
 ```
 
 ## Forehead
@@ -278,7 +284,7 @@ More increases in *impersonal*. However, the p value of the likelihood ratio tes
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Forehead")
 m <- multinom(effect ~ condition, data=temp, model=TRUE)
@@ -295,11 +301,12 @@ ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Forehead")
-m <- nnet::multinom(effect ~ likeabilityC, data=temp, model=TRUE)
+m <- multinom(effect ~ likeabilityC, data=temp, model=TRUE)
 lmtest::lrtest(m)
+DescTools::PseudoR2(m, which = "Nagelkerke")
 ```
 
 Forehead temperature *increased less often* when the speaker scored higher in *extraversion.* This was confirmed by the likelihood ratio test.
@@ -311,7 +318,7 @@ ggplot(d |> filter(ROI=="Forehead"), aes(effect, extraversion))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Forehead")
 m <- multinom(effect ~ extraversionC, data=temp, model=TRUE)
@@ -328,7 +335,7 @@ ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Forehead")
 m <- multinom(effect ~ opennessC, data=temp, model=TRUE)
@@ -349,7 +356,7 @@ Cheek temperature tended to *increase more often* in the *impersonal* condition.
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Cheeks")
 m <- multinom(effect ~ condition, data=temp, model=TRUE)
@@ -366,11 +373,12 @@ ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
 ```{r}
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 temp <- d |> filter(ROI=="Cheeks")
-m <- nnet::multinom(effect ~ agreeablenessC, data=temp, model=TRUE)
+m <- multinom(effect ~ agreeablenessC, data=temp, model=TRUE)
 lmtest::lrtest(m)
+DescTools::PseudoR2(m, which = "Nagelkerke")
 ```
 
 # Thermal comfort / Temperature perception
@@ -484,7 +492,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -492,38 +500,38 @@ emmeans(m, pairwise~condition, by="effect")
 ```{r}
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 No effect of BFI scores
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Eyes
@@ -539,7 +547,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -547,42 +555,42 @@ No effect of the perception of their partner.
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 No effect of BFI scores
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Forehead
@@ -598,7 +606,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -606,42 +614,42 @@ No effect of the perception of their partner.
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 No effect of BFI scores
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Cheeks
@@ -657,7 +665,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -665,38 +673,38 @@ No effect of the perception of their partner.
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ```{r}
 
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 # Second part of experiment (Diapix)
@@ -732,7 +740,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -740,30 +748,30 @@ emmeans(m, pairwise~condition, by="effect")
 ```{r}
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ```{r}
 
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Nose"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Eyes
@@ -779,7 +787,7 @@ No effect of condition
 ```{r}
 tidy(m <- nnet::multinom(effect ~ condition, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 emmeans(m, pairwise~condition, by="effect")
 ```
 
@@ -787,34 +795,34 @@ emmeans(m, pairwise~condition, by="effect")
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Eyes"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Forehead
@@ -822,30 +830,30 @@ tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Eyes"))) 
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 
 ```{r}
 tidy(m <- nnet::multinom(effect ~ agreeablenessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Forehead"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ## Cheeks
@@ -855,37 +863,37 @@ No effect of the perception of their partner.
 ```{r}
 tidy(m <- nnet::multinom(effect ~ becomeFriendsC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ closenessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ similarityC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ likeabilityC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 ```{r}
 tidy(m <- nnet::multinom(effect ~ extraversionC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ opennessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ conscientiousnessC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 
 tidy(m <- nnet::multinom(effect ~ neuroticismC, data=d |> filter(ROI=="Cheeks"))) |> 
   as_tibble() |> 
-  mutate(estimateP = plogis(estimate)) #  transforms log odds (the output of the model) into probabilities
+  mutate(estimateExp = exp(estimate)) #  transforms log odds (the output of the model) into odds
 ```
 
 # Thermal comfort / Temperature perception

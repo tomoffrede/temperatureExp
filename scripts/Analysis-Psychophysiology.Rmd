@@ -1,0 +1,552 @@
+---
+title: "Analysis - Psychophysiology Paper"
+author: "Tom Offrede"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: 
+      collapsed: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(lmerTest)
+library(broom)
+library(DHARMa)
+library(parsnip)
+library(nnet)
+library(emmeans)
+
+load(paste0(here::here(), "/data/tempData.RData"))
+load(paste0(here::here(), "/data/metadata-clean.RData"))
+meta <- m
+```
+
+# Only significant effects
+
+# All the models
+
+```{r include=FALSE}
+all <- data.frame(matrix(nrow=0, ncol=7))
+names(all) <- c("speaker", "condition", "ROI", "direction", "t", "p", "section")
+
+for(s in unique(dat$speaker)){
+  for(r in unique(dat$ROI)){
+    d <- dat |> filter(speaker==s, ROI==r)
+    if(nrow(d)<=1){next}
+    c <- tidy(lm(temperature ~ timeN, d))
+    all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                           ifelse(c$estimate[2] < 0, "negative", "positive"),
+                           c$statistic[2],
+                           c$p.value[2],
+                           "entireExp")
+    for(section in c("Lists", "Diapix")){
+      d <- dat |> filter(speaker==s, ROI==r, task==section)
+      if(nrow(d)==0){next}
+      c <- tidy(lm(temperature ~ timeN, d))
+      all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                             ifelse(c$estimate[2] < 0, "negative", "positive"),
+                             c$statistic[2],
+                             c$p.value[2],
+                             section)
+    }
+  }
+}
+
+all <- all |> 
+  mutate_at(c("t", "p"), as.numeric) |> 
+  mutate(sign = ifelse(p < 0.05, "yes", "ns"),
+         effect = case_when(
+           sign == "yes" & direction == "positive" ~ "increase",
+           sign == "yes" & direction == "negative" ~ "decrease",
+           sign == "ns" ~ "ns",
+         ),
+         dyad = substr(speaker, 1, 3)) |> 
+  mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
+
+all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
+all$effect <- relevel(all$effect, ref="ns")
+all$condition <- relevel(all$condition, ref="close")
+```
+
+#### First part of experiment (Lists)
+
+```{r}
+d <- merge(all |> 
+             filter(section == "Lists") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+##### Nose
+
+No condition effect
+
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+People *increased* their temperature *more often* when they wanted more to *become friends* with their partner. When performing pairwise comparison and adjusting the p value, it became a little over .05 (i.e. .055)
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+##### Eyes
+
+No condition effect
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glm(condition ~ effect, d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+
+##### Forehead
+
+No condition effect
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("FOREHEAD: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(glm(condition ~ effect, d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+No effect of perception of partner
+```{r}
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of BFI scores
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+##### Cheeks
+
+More temperature changes (increases and decreases) in the impersonal condition
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Cheeks"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+#### Second part of experiment (Diapix)
+
+```{r}
+d <- merge(all |> 
+             filter(section == "Diapix") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+##### Nose
+
+More temperature decreases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+People *decreased* their nose temperature *less often* when they wanted more to *become friends* with their partner.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+Higher extraversion scores -- fewer temperature increases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases and decreases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+Warmer thermal perception -- fewer temperature increases and decreases in the nose. 
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, comfortPost))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+```
+
+
+##### Eyes
+
+No effect of condition
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("EYES: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+No effect of condition
+```{r}
+summary(m <- glm(condition ~ effect, d |> filter(ROI=="Eyes"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Eyes.
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+```
+
+
+##### Forehead
+
+More temperature increases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glm(condition ~ effect, d |> filter(ROI=="Forehead"), family=binomial))
+```
+
+Higher closeness -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, closeness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher likeability -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+Higher extraversion scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+```
+
+
+##### Cheeks
+
+More temperature decreases in the impersonal condition. But the result concerning temperature increases looks weird. I don't know if I trust this model.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+```
+
+No effect of perception of partner.
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(similarity ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+```{r}
+summary(m <- lmer(neuroticism ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(conscientiousness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+No effect of thermal perception
+```{r}
+summary(m <- lmer(comfortPre ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+```
+
+# Session Info
+```{r}
+sessionInfo()
+```
