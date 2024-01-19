@@ -347,7 +347,7 @@ effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speake
 # summary(m <- ordinal::clmm(effect ~ rcitRatingC + rcitRatingC : rcitType + (1+rcitRatingC : rcitType|speaker) + (1+rcitRatingC : rcitType|dyad), data |> filter(ROI=="Cheeks", section=="entireExp")))
 ```
 
-### "gaussian" regression - questionnaire scores as predictors
+### linear regression - questionnaire scores as predictors
 (but logistic for condition ~ effect)
 
 #### First part of experiment (Lists)

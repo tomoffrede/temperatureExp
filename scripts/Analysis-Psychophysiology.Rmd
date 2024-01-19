@@ -29,9 +29,337 @@ meta <- m
 
 # Only significant effects
 
+```{r include=FALSE}
+all <- data.frame(matrix(nrow=0, ncol=7))
+names(all) <- c("speaker", "condition", "ROI", "direction", "t", "p", "section")
+
+for(s in unique(dat$speaker)){
+  for(r in unique(dat$ROI)){
+    d <- dat |> filter(speaker==s, ROI==r)
+    if(nrow(d)<=1){next}
+    c <- tidy(lm(temperature ~ timeN, d))
+    all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                           ifelse(c$estimate[2] < 0, "negative", "positive"),
+                           c$statistic[2],
+                           c$p.value[2],
+                           "entireExp")
+    for(section in c("Lists", "Diapix")){
+      d <- dat |> filter(speaker==s, ROI==r, task==section)
+      if(nrow(d)==0){next}
+      c <- tidy(lm(temperature ~ timeN, d))
+      all[nrow(all)+1,] <- c(s, unique(d$condition), r,
+                             ifelse(c$estimate[2] < 0, "negative", "positive"),
+                             c$statistic[2],
+                             c$p.value[2],
+                             section)
+    }
+  }
+}
+
+all <- all |> 
+  mutate_at(c("t", "p"), as.numeric) |> 
+  mutate(sign = ifelse(p < 0.05, "yes", "ns"),
+         effect = case_when(
+           sign == "yes" & direction == "positive" ~ "increase",
+           sign == "yes" & direction == "negative" ~ "decrease",
+           sign == "ns" ~ "ns",
+         ),
+         dyad = substr(speaker, 1, 3)) |> 
+  mutate_at(c("direction", "speaker", "effect", "condition", "section", "ROI"), as.factor)
+
+all$section <- factor(all$section, levels=c("Lists", "Diapix", "entireExp"))
+all$effect <- relevel(all$effect, ref="ns")
+all$condition <- relevel(all$condition, ref="close")
+```
+
+#### First part of experiment (Lists)
+
+```{r include=FALSE}
+d <- merge(all |> 
+             filter(section == "Lists") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+##### Nose
+
+People *increased* their temperature *more often* when they wanted more to *become friends* with their partner.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+
+MuMIn::r.squaredGLMM(m)
+```
+
+##### Eyes
+
+No effects
+
+##### Forehead
+
+No effects
+
+##### Cheeks
+
+More temperature changes (increases and decreases) in the impersonal condition
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Lists)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Cheeks"), family=binomial))
+
+broom.mixed::tidy(m) |> # to see the estimates in odds and probabilities
+  mutate(estimateExp = exp(estimate),
+         estimateProb = plogis(estimate))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+#### Second part of experiment (Diapix)
+
+```{r include=FALSE}
+d <- merge(all |> 
+             filter(section == "Diapix") |>
+             select(-condition) |> 
+             mutate_at(c("sign", "effect"), as.factor),
+           meta, by="speaker") |> 
+  mutate_at("condition", as.factor)
+```
+
+##### Nose
+
+More temperature decreases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("NOSE: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+
+broom.mixed::tidy(m) |> # to see the estimates in odds and probabilities
+  mutate(estimateExp = exp(estimate),
+         estimateProb = plogis(estimate))
+```
+
+People *decreased* their nose temperature *less often* when they wanted more to *become friends* with their partner.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(becomeFriends ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher extraversion scores -- fewer temperature increases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases and decreases in nose.
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Warmer thermal perception -- fewer temperature increases and decreases in the nose. 
+```{r}
+ggplot(d |> filter(ROI=="Nose"), aes(effect, comfortPost))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(comfortPost ~ effect + (1|dyad), d |> filter(ROI=="Nose")))
+
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+
+##### Eyes
+
+Higher agreeableness scores -- fewer temperature increases in Eyes.
+```{r}
+ggplot(d |> filter(ROI=="Eyes"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Eyes")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+
+##### Forehead
+
+More temperature increases in the impersonal condition.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("FOREHEAD: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glm(condition ~ effect, d |> filter(ROI=="Forehead"), family=binomial))
+
+broom.mixed::tidy(m) |> # to see the estimates in odds and probabilities
+  mutate(estimateExp = exp(estimate),
+         estimateProb = plogis(estimate))
+```
+
+Higher closeness -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, closeness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(closeness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher likeability -- fewer temperature increases in the forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, likeability))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(likeability ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher extraversion scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, extraversion))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(extraversion ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+Higher openness scores -- fewer temperature increases in Forehead.
+```{r}
+ggplot(d |> filter(ROI=="Forehead"), aes(effect, openness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(openness ~ effect + (1|dyad), d |> filter(ROI=="Forehead")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
+##### Cheeks
+
+More temperature decreases in the impersonal condition. But the result concerning temperature increases looks weird. I don't know if I trust this model.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(condition, fill=effect))+
+  geom_bar()+
+  ggtitle("CHEEKS: Temperature change across conditions (Diapix)")+
+  scale_fill_manual(values = c("decrease" = "lightblue", "increase" = "red", "ns" = "gray"))
+```
+
+```{r}
+summary(m <- glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
+
+broom.mixed::tidy(m) |> # to see the estimates in odds and probabilities
+  mutate(estimateExp = exp(estimate),
+         estimateProb = plogis(estimate))
+```
+
+Higher agreeableness scores -- fewer temperature increases in Cheeks.
+```{r}
+ggplot(d |> filter(ROI=="Cheeks"), aes(effect, agreeableness))+
+  geom_boxplot()
+```
+
+```{r}
+summary(m <- lmer(agreeableness ~ effect + (1|dyad), d |> filter(ROI=="Cheeks")))
+par(mfrow=c(2, 2))
+hist(resid(m))
+qqnorm(resid(m));qqline(resid(m))
+plot(fitted(m), resid(m))
+```
+
 # All the models
 
 ```{r include=FALSE}
+load(paste0(here::here(), "/data/tempData.RData"))
+load(paste0(here::here(), "/data/metadata-clean.RData"))
+meta <- m
+
 all <- data.frame(matrix(nrow=0, ncol=7))
 names(all) <- c("speaker", "condition", "ROI", "direction", "t", "p", "section")
 
@@ -100,7 +428,7 @@ ggplot(d |> filter(ROI=="Nose"), aes(condition, fill=effect))+
 summary(glmer(condition ~ effect + (1|dyad), d |> filter(ROI=="Nose"), family=binomial))
 ```
 
-People *increased* their temperature *more often* when they wanted more to *become friends* with their partner. When performing pairwise comparison and adjusting the p value, it became a little over .05 (i.e. .055)
+People *increased* their temperature *more often* when they wanted more to *become friends* with their partner.
 ```{r}
 ggplot(d |> filter(ROI=="Nose"), aes(effect, becomeFriends))+
   geom_boxplot()
