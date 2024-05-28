@@ -409,7 +409,7 @@ ggsave(paste0(folderFig, "bfi-lists.png"), dpi="retina", height = 1000, width=17
           axis.title.x = element_text(size=18),
           axis.title.y = element_text(size=20),
           axis.text.x = element_text(size=18),
-          axis.text.y = element_text(size=14))
+          axis.text.y = element_blank())
 )
 
 (f2 <- ggplot(d |> filter(ROI=="Forehead", section=="Diapix"), aes(effect, openness))+
@@ -425,13 +425,15 @@ color=colorF)+
     scale_x_discrete(labels=c("ns"="Not signif.", "decrease"="Decrease", "increase"="Increase"))+
     theme(legend.position="none",
           plot.title = element_text(color=colorF, size=20),
-          axis.title = element_text(size=18),
-          axis.text.x = element_text(size=18))
+          axis.title.x = element_text(size=18),
+          axis.title.y = element_text(size=20),
+          axis.text.x = element_text(size=18),
+          axis.text.y = element_text(size=14))
 )
 
 (e <- ggplot(d |> filter(ROI=="Eyes", section=="Diapix"), aes(effect, agreeableness))+
     geom_boxplot(width=0.15, fatten = NULL, color=colorE, size=1)+
-    ggdist::stat_halfeye(adjust = .6,  width = .4, justification = -.3, .width = c(.5, .95),
+    ggdist::stat_halfeye(adjust = .6,  width = .6, justification = -.3, .width = c(.5, .95),
                          color=colorE)+
     geom_signif(comparisons = list(c("ns", "increase")),
                 annotations = c("*"),
@@ -469,7 +471,9 @@ color=colorF)+
 annotate_figure(ggarrange(ggarrange(f1,n1),
                           ggarrange(f2,n2),
                           ggarrange(e,c),
-                          nrow=3), bottom=text_grob("Temperature change", size=18))
+                          nrow=3),
+                top=text_grob(expression("2"^"nd"* " half of experiment: Temperature change and personality"), size=20),
+                bottom=text_grob("Temperature change", size=18))
 ggsave(paste0(folderFig, "bfi-diapix.png"), dpi="retina", height = 5000, width=3000, units = "px")
 ############################################################
 
